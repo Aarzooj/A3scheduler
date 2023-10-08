@@ -13,6 +13,9 @@
 #define HISTORY_SIZE 100
 #define MAX_BGPROCESS 5
 
+int NCPU;
+int TSLICE;
+
 // PIDs of background process running in the background. Can handle max of 5 processes only
 // initialising all values to 0
 pid_t running_bg_process[MAX_BGPROCESS] = {0};
@@ -430,8 +433,13 @@ void shell_loop()
 }
 
 // Main function
-int main()
+int main(int argc , char *argv[])
 {
+    printf("Yes\n");
+    NCPU = atoi(argv[1]);
+    TSLICE = atoi(argv[2]);
+    printf("%d\n",NCPU);
+    printf("%d\n",TSLICE);
     // initializing count for elements in history
     history.historyCount = 0;
     shell_loop();
