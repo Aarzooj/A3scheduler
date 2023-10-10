@@ -11,17 +11,9 @@
 // defining sizes for data structures allocated
 #define INPUT_SIZE 256
 #define HISTORY_SIZE 100
-#define MAX_BGPROCESS 5
 
 int NCPU;
 int TSLICE;
-
-// PIDs of background process running in the background. Can handle max of 5 processes only
-// initialising all values to 0
-pid_t running_bg_process[MAX_BGPROCESS] = {0};
-
-// flag if the background process is started
-int bgProcess = 0;
 
 // struct for each command stored in history
 struct CommandParameter
@@ -79,43 +71,6 @@ void displayHistory()
     }
 }
 
-// append background process as the latest value in the array
-int append(pid_t pid)
-{
-    int added = -1;
-    // if no background process running then add it as the first value
-    if (running_bg_process[0] == 0 && running_bg_process[1] == 0 && running_bg_process[2] == 0 && running_bg_process[3] == 0 && running_bg_process[4] == 0)
-    {
-        added = 0;
-        running_bg_process[0] = pid;
-        return added;
-    }
-    // adding the process only after the last non-zero PID that is a running background process
-    for (int i = MAX_BGPROCESS - 2; i >= 0; i--)
-    {
-        if (running_bg_process[i] != 0)
-        {
-            running_bg_process[i + 1] = pid;
-            added = i + 1;
-        }
-    }
-    return added;
-}
-
-int pop(pid_t pid)
-{
-    // removing the PID of the completed background process and resetting it to 0
-    for (int i = 0; i < MAX_BGPROCESS; i++)
-    {
-        if (running_bg_process[i] == pid)
-        {
-            running_bg_process[i] = 0;
-            return i;
-        }
-    }
-    return -1;
-}
-
 // running shell commands
 int create_process_and_run(char **args)
 {
@@ -135,36 +90,16 @@ int create_process_and_run(char **args)
     }
     else
     {
-        // Checking for background process
-        if (!(bgProcess))
+        int child_status;
+        // Wait for the child to complete
+        wait(&child_status);
+        if (WIFEXITED(child_status))
         {
-            int child_status;
-            // Wait for the child to complete
-            wait(&child_status);
-            if (WIFEXITED(child_status))
-            {
-                int exit_code = WEXITSTATUS(child_status);
-            }
-            else
-            {
-                printf("Child process did not exit normally.\n");
-            }
+            int exit_code = WEXITSTATUS(child_status);
         }
         else
         {
-            // parent doesn't wait for the background child processes to terminate
-            int order = append(status);
-            if (order != -1)
-            {
-                history.record[history.historyCount].process_pid = status;
-                // start of background process
-                printf("[%d] %d\n", order + 1, status);
-            }
-            else
-            {
-                history.record[history.historyCount].process_pid = 0;
-                printf("No more background processes can be added");
-            }
+            printf("Child process did not exit normally.\n");
         }
     }
     return status;
@@ -264,62 +199,7 @@ char **tokenize(char *command, const char delim[2])
         args[count++] = strip(token);
         token = strtok(NULL, delim);
     }
-    // checking for & as the last argument to check if the process should be in the background
-    if (count > 0 && strcmp(args[count - 1], "&") == 0 && strcmp(delim, " ") == 0)
-    {
-        bgProcess = 1;
-        free(args[count - 1]);
-        args[count - 1] = NULL;
-        count--;
-    }
     return args;
-}
-
-// Handling SIGCHLD: Passed when a child process terminates (background process in this case)
-void handle_sigchld(int signum)
-{
-    int status;
-    pid_t pid;
-    // returns the pid of the terminated child
-    // WNOHANG: returns 0 if the status information of any process is not available i.e. the process has not terminated
-    // In other words, the loop will only run after the background processes running has terminated or changed state
-    while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
-    {
-        // Finding the child process in history according to the PID of the terminated process
-        for (int i = 0; i < history.historyCount; i++)
-        {
-            if (history.record[i].process_pid == pid)
-            {
-                // finding from background process array
-                int order = pop(pid);
-                if (order != -1)
-                {
-                    history.record[i].end_time = time(NULL);
-                    history.record[i].duration = difftime(
-                        history.record[i].end_time,
-                        history.record[i].start_time);
-                    // duplicating the command to tmp to avoid corruption of data
-                    char *tmp = strdup(history.record[i].command);
-                    if (tmp == NULL)
-                    {
-                        perror("Error in strdup");
-                        exit(EXIT_FAILURE);
-                    }
-                    tmp = strtok(tmp, "&");
-                    printf("\n[%d]+ Done                    %s\n", order + 1, tmp);
-                    break;
-                }
-                else
-                {
-                    // background process not found i.e. it was not added to the array
-                    history.record[i].end_time = history.record[i].start_time;
-                    history.record[i].duration = difftime(
-                        history.record[i].end_time,
-                        history.record[i].start_time);
-                }
-            }
-        }
-    }
 }
 
 // Checking for quotation marks and backslash in the input
@@ -340,28 +220,23 @@ void shell_loop()
     {
         perror("SIGINT handling failed");
     }
-    // Setting the function for SIGCHLD
-    if (signal(SIGCHLD, handle_sigchld) == SIG_ERR)
+    // Creating the prompt text
+    char *user = getenv("USER");
+    if (user == NULL)
     {
-        perror("SIGCHLD handling failed");
+        perror("USER environment variable not declared");
+        exit(1);
+    }
+    char host[INPUT_SIZE];
+    int hostname = gethostname(host, sizeof(host));
+    if (hostname == -1)
+    {
+        perror("HOST not declared");
+        exit(1);
     }
     int status;
     do
     {
-        // Creating the prompt text
-        char *user = getenv("USER");
-        if (user == NULL)
-        {
-            perror("USER environment variable not declared");
-            exit(1);
-        }
-        char host[INPUT_SIZE];
-        int hostname = gethostname(host, sizeof(host));
-        if (hostname == -1)
-        {
-            perror("HOST not declared");
-            exit(1);
-        }
         printf("%s@%s~$ ", user, host);
 
         // taking input
@@ -417,29 +292,27 @@ void shell_loop()
         }
         else
         {
-                char **args = tokenize(command, " ");
-                strcpy(history.record[history.historyCount].command, tmp);
-                history.record[history.historyCount].start_time = time(NULL);
-                status = launch(args);
-                history.record[history.historyCount].end_time = time(NULL);
-                history.record[history.historyCount].duration = difftime(
-                    history.record[history.historyCount].end_time,
-                    history.record[history.historyCount].start_time);
-                history.historyCount++;
+            char **args = tokenize(command, " ");
+            strcpy(history.record[history.historyCount].command, tmp);
+            history.record[history.historyCount].start_time = time(NULL);
+            status = launch(args);
+            history.record[history.historyCount].end_time = time(NULL);
+            history.record[history.historyCount].duration = difftime(
+                history.record[history.historyCount].end_time,
+                history.record[history.historyCount].start_time);
+            history.historyCount++;
         }
-        // resetting the background process variable
-        bgProcess = 0;
     } while (status);
 }
 
 // Main function
-int main(int argc , char *argv[])
+int main(int argc, char *argv[])
 {
     printf("Yes\n");
     NCPU = atoi(argv[1]);
     TSLICE = atoi(argv[2]);
-    printf("%d\n",NCPU);
-    printf("%d\n",TSLICE);
+    printf("%d\n", NCPU);
+    printf("%d\n", TSLICE);
     // initializing count for elements in history
     history.historyCount = 0;
     shell_loop();
