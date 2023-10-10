@@ -12,6 +12,7 @@
 // defining sizes for data structures allocated
 #define INPUT_SIZE 256
 #define HISTORY_SIZE 100
+#define MAX_PROGRAM_NAME 50
 
 int NCPU;
 int TSLICE;
@@ -213,38 +214,56 @@ bool validate_command(char *command)
     return false;
 }
 
-static void start_handler(int signum)
+void scheduler(int ncpu, int tslice)
 {
-    printf("start\n");
-    if (signum == SIGUSR1)
+    int current_process = 0;
+    while (num_processes > 0)
     {
-        printf("Received signal. Adding\n");
-        for (int j = 0; j < num_processes; j++)
+        if (ready_queue[front]->pid != -1)
         {
-            printf("Adding to ready queue\n");
-            add_process(process_table[j]);
-        }
-        for (int i = 0; i < NCPU; i++)
-        {
-            int status = fork();
-            if (status < 0)
+            int pid = remove_process(ready_queue[front])->pid;
+            if (pid != -1)
             {
-                perror("Fork Failed");
-            }
-            else if (status == 0)
-            {
-                process p = remove_process(ready_queue[front]);
-                p.pid = getpid();
-                p.state = RUNNING;
-                printf("Running\n");
-            }
-            else
-            {
+                // Send signal to start execution
+                kill(pid, SIGCONT);
 
+                // Wait for the time slice
+                sleep(tslice);
+
+                // Send signal to stop execution
+                kill(pid, SIGSTOP);
+
+                // Calculate wait and end times
+                for (int i = 0; i < num_processes; i++)
+                {
+                    if (ready_queue[i]->pid == pid)
+                    {
+                        if (clock_gettime(CLOCK_MONOTONIC, &ready_queue[i]->end_time) == -1)
+                        {
+                            perror("clock_gettime");
+                            exit(EXIT_FAILURE);
+                        }
+                        ready_queue[i]->wait_time =
+                            (ready_queue[i]->end_time.tv_nsec - ready_queue[i]->start_time.tv_nsec)/1e9;
+                        printf("Process %s (PID %d) completed.\n", ready_queue[i]->name,
+                               ready_queue[i]->pid);
+                        printf("Duration: %f\n",ready_queue[i]->wait_time);
+                        break;
+                    }
+                }
             }
         }
+
+        // Move to the next process in a round-robin fashion
+        current_process = (current_process + 1) % num_processes;
     }
+    // printf("In scheduler\n");
+    // for (int i = front; i < num_processes; i++)
+    // {
+    //     printf("%d %s %d %f\n", ready_queue[i]->pid, ready_queue[i]->name, ready_queue[i]->state,ready_queue[i]->start_time.tv_nsec/1e9);
+    // }
 }
+
 // main shell loop
 void shell_loop()
 {
@@ -253,10 +272,10 @@ void shell_loop()
     {
         perror("SIGINT handling failed");
     }
-    if (signal(SIGUSR1, start_handler) == SIG_ERR)
-    {
-        perror("SIGUSR1 handling failed");
-    }
+    // if (signal(SIGUSR1, start_handler) == SIG_ERR)
+    // {
+    //     perror("SIGUSR1 handling failed");
+    // }
     // Creating the prompt text
     char *user = getenv("USER");
     if (user == NULL)
@@ -329,8 +348,7 @@ void shell_loop()
         }
         else if (strstr(command, "run"))
         {
-            printf("Sending signal\n");
-            kill(getpid(), SIGUSR1);
+            scheduler(NCPU, TSLICE);
         }
         else
         {
@@ -339,13 +357,49 @@ void shell_loop()
             history.record[history.historyCount].start_time = time(NULL);
             if (strcmp(args[0], "submit") == 0)
             {
-                process *p = create_process(args[1]);
-                add_process_table(p);
-                num_processes++;
-                // for (int j = 0; j < num_processes; j++){
-                //     printf("%s\n",process_table[j].name);
-                // }
-                status = 1;
+                char program[MAX_PROGRAM_NAME];
+                sscanf(command, "submit %s", program);
+
+                pid_t pid = fork();
+                if (pid == 0)
+                { // Child process
+                    // Wait for the scheduler signal before starting execution
+                    raise(SIGSTOP);
+                    execl(program, program, (char *)NULL);
+                    fprintf(stderr, "Error executing %s\n", program);
+                    exit(1);
+                }
+                else if (pid > 0)
+                { // Parent process
+                    // Add the process to the list
+                    // strcpy(ready_queue[num_processes].name, program);
+                    // ready_queue[num_processes].pid = pid;
+                    // ready_queue[num_processes].start_time = time(NULL);
+                    process *p = create_process(args[1]);
+                    p->pid = pid;
+                    // p->start_time = time(NULL);
+                    if (clock_gettime(CLOCK_MONOTONIC, &p->start_time) == -1)
+                    {
+                        perror("clock_gettime");
+                        exit(EXIT_FAILURE);
+                    }
+                    add_process(p);
+                    num_processes++;
+                }
+                else
+                {
+                    fprintf(stderr, "Fork failed\n");
+                    exit(1);
+                }
+                status = pid;
+                if (status > 0)
+                {
+                    history.record[history.historyCount].process_pid = status;
+                }
+                else
+                {
+                    history.record[history.historyCount].process_pid = 0;
+                }
             }
             else
             {

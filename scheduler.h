@@ -17,7 +17,7 @@ typedef struct Process {
     float wait_time;
 } process;
 
-process process_table[MAX_PROCESSES];
+// process process_table[MAX_PROCESSES];
 
 process* create_process(char* name);
-void add_process_table(process* p);
+// void add_process_table(process* p);

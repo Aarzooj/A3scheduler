@@ -21,25 +21,25 @@ process* create_process(char* name){
     return p;
 }
 
-void add_process_table(process* p){
-    process_table[i] = *p;
-    i++;
-}
+// void add_process_table(process* p){
+//     process_table[i] = *p;
+//     i++;
+// }
 
-process ready_queue[MAX_PROCESSES];
+process* ready_queue[MAX_PROCESSES];
 int front = 0;
 int rear = -1;
 
-void add_process(process p){
+void add_process(process* p){
     rear++;
     ready_queue[rear] = p;
     // num_processes++;
 }
 
-process remove_process(process p){
+process* remove_process(process* p){
     if (front > rear) {
-        process empty_process;
-        empty_process.pid = -1;
+        process* empty_process;
+        empty_process->pid = -1;
         return empty_process;
     }
     p = ready_queue[front];
