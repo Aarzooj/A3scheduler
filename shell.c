@@ -7,6 +7,7 @@
 #include <stdbool.h>
 
 #include "dummy_main.h"
+#include "try.c"
 
 // defining sizes for data structures allocated
 #define INPUT_SIZE 256
@@ -295,7 +296,17 @@ void shell_loop()
             char **args = tokenize(command, " ");
             strcpy(history.record[history.historyCount].command, tmp);
             history.record[history.historyCount].start_time = time(NULL);
-            status = launch(args);
+            if (strcmp(args[0],"submit") == 0){
+                process* p = create_process(args[1]);
+                add_process_table(p);
+                num_processes++;
+                for (int j = 0; j < num_processes; j++){
+                    printf("%s\n",process_table[j].name);
+                }
+                status = 1;
+            }else{
+                status = launch(args);
+            }
             history.record[history.historyCount].end_time = time(NULL);
             history.record[history.historyCount].duration = difftime(
                 history.record[history.historyCount].end_time,
@@ -308,7 +319,10 @@ void shell_loop()
 // Main function
 int main(int argc, char *argv[])
 {
-    printf("Yes\n");
+    if (argc != 3){
+        printf("Usage: %s <NCPU> <TSLICE>\n",argv[0]);
+        exit(1);
+    }
     NCPU = atoi(argv[1]);
     TSLICE = atoi(argv[2]);
     printf("%d\n", NCPU);
