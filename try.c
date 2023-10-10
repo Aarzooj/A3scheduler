@@ -21,11 +21,6 @@ process* create_process(char* name){
     return p;
 }
 
-// void add_process_table(process* p){
-//     process_table[i] = *p;
-//     i++;
-// }
-
 process* ready_queue[MAX_PROCESSES];
 int front = 0;
 int rear = -1;

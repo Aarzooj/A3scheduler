@@ -14,10 +14,7 @@ typedef struct Process {
     struct timespec start_time;
     struct timespec end_time;
     long long execution_time;
-    float wait_time;
+    double wait_time;
 } process;
 
-// process process_table[MAX_PROCESSES];
-
 process* create_process(char* name);
-// void add_process_table(process* p);

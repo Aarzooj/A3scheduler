@@ -5,6 +5,7 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <stdbool.h>
+// #include <librt.h>
 
 #include "dummy_main.h"
 #include "try.c"
@@ -214,11 +215,53 @@ bool validate_command(char *command)
     return false;
 }
 
+void timer_handler(int signum) {
+    printf("Timer expired!\n");
+}
+
+void create_timer(){
+    struct sigevent se;
+    timer_t timer;
+    struct itimerspec its;
+    long long milliseconds = TSLICE;
+
+    // Create a timer
+    se.sigev_notify = SIGEV_SIGNAL;
+    se.sigev_signo = SIGALRM;
+    se.sigev_value.sival_ptr = &timer;
+    se.sigev_value.sival_int = 0;
+    if (timer_create(CLOCK_REALTIME, &se, &timer) == -1) {
+        perror("timer_create");
+        exit(1);
+    }
+
+    // Get the current time
+    struct timespec now;
+    clock_gettime(CLOCK_REALTIME, &now);
+
+    // Calculate the absolute time at which the timer should expire
+    its.it_value.tv_sec = now.tv_sec + (milliseconds / 1000);
+    its.it_value.tv_nsec = (now.tv_nsec + (milliseconds % 1000) * 1000000) % 1000000000;
+
+    its.it_interval.tv_sec = 0; // Non-repeating timer
+    its.it_interval.tv_nsec = 0;
+
+    if (timer_settime(timer, TIMER_ABSTIME, &its, NULL) == -1) {
+        perror("timer_settime");
+        exit(1);
+    }
+
+    // Print the message "Timer created"
+    printf("Timer created\n");
+}
+
 void scheduler(int ncpu, int tslice)
 {
+    create_timer();
     printf("In scheduler\n");
     for (int i = front; i < num_processes; i++)
     {
+        sleep(1);
         printf("%d %s %d %f\n", ready_queue[i]->pid, ready_queue[i]->name, ready_queue[i]->state,ready_queue[i]->start_time.tv_nsec/1e9);
     }
 }
@@ -231,10 +274,10 @@ void shell_loop()
     {
         perror("SIGINT handling failed");
     }
-    // if (signal(SIGUSR1, start_handler) == SIG_ERR)
-    // {
-    //     perror("SIGUSR1 handling failed");
-    // }
+    if (signal(SIGALRM, timer_handler) == SIG_ERR)
+    {
+        perror("SIGALRM handling failed");
+    }
     // Creating the prompt text
     char *user = getenv("USER");
     if (user == NULL)
