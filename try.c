@@ -33,7 +33,7 @@ int rear = -1;
 void add_process(process p){
     rear++;
     ready_queue[rear] = p;
-    num_processes++;
+    // num_processes++;
 }
 
 process remove_process(process p){

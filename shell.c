@@ -212,16 +212,20 @@ bool validate_command(char *command)
     }
     return false;
 }
-static void start_handler(int signum){
-    printf("start\n");
-    if (signum == SIGUSR1){
-        printf("Received signal. Adding\n");
 
-        for (int j = 0 ; j<num_processes;j++){
+static void start_handler(int signum)
+{
+    printf("start\n");
+    if (signum == SIGUSR1)
+    {
+        printf("Received signal. Adding\n");
+        for (int j = 0; j < num_processes; j++)
+        {
+            printf("Adding to ready queue\n");
             add_process(process_table[j]);
         }
-        
-        for (int i = 0 ; i < NCPU ; i++){
+        for (int i = 0; i < NCPU; i++)
+        {
             int status = fork();
             if (status < 0)
             {
@@ -229,16 +233,17 @@ static void start_handler(int signum){
             }
             else if (status == 0)
             {
-
+                process p = remove_process(ready_queue[front]);
+                p.pid = getpid();
+                p.state = RUNNING;
+                printf("Running\n");
             }
             else
             {
-            
-             }
+
+            }
         }
     }
-
-
 }
 // main shell loop
 void shell_loop()
@@ -322,24 +327,28 @@ void shell_loop()
                 continue;
             }
         }
-        else if (strstr(command , "run")){
+        else if (strstr(command, "run"))
+        {
             printf("Sending signal\n");
-            kill(getpid(),SIGUSR1);
+            kill(getpid(), SIGUSR1);
         }
         else
         {
             char **args = tokenize(command, " ");
             strcpy(history.record[history.historyCount].command, tmp);
             history.record[history.historyCount].start_time = time(NULL);
-            if (strcmp(args[0],"submit") == 0){
-                process* p = create_process(args[1]);
+            if (strcmp(args[0], "submit") == 0)
+            {
+                process *p = create_process(args[1]);
                 add_process_table(p);
                 num_processes++;
                 // for (int j = 0; j < num_processes; j++){
                 //     printf("%s\n",process_table[j].name);
                 // }
                 status = 1;
-            }else{
+            }
+            else
+            {
                 status = launch(args);
             }
             history.record[history.historyCount].end_time = time(NULL);
@@ -354,8 +363,9 @@ void shell_loop()
 // Main function
 int main(int argc, char *argv[])
 {
-    if (argc != 3){
-        printf("Usage: %s <NCPU> <TSLICE>\n",argv[0]);
+    if (argc != 3)
+    {
+        printf("Usage: %s <NCPU> <TSLICE>\n", argv[0]);
         exit(1);
     }
     NCPU = atoi(argv[1]);
