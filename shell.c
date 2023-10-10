@@ -216,52 +216,11 @@ bool validate_command(char *command)
 
 void scheduler(int ncpu, int tslice)
 {
-    int current_process = 0;
-    while (num_processes > 0)
+    printf("In scheduler\n");
+    for (int i = front; i < num_processes; i++)
     {
-        if (ready_queue[front]->pid != -1)
-        {
-            int pid = remove_process(ready_queue[front])->pid;
-            if (pid != -1)
-            {
-                // Send signal to start execution
-                kill(pid, SIGCONT);
-
-                // Wait for the time slice
-                sleep(tslice);
-
-                // Send signal to stop execution
-                kill(pid, SIGSTOP);
-
-                // Calculate wait and end times
-                for (int i = 0; i < num_processes; i++)
-                {
-                    if (ready_queue[i]->pid == pid)
-                    {
-                        if (clock_gettime(CLOCK_MONOTONIC, &ready_queue[i]->end_time) == -1)
-                        {
-                            perror("clock_gettime");
-                            exit(EXIT_FAILURE);
-                        }
-                        ready_queue[i]->wait_time =
-                            (ready_queue[i]->end_time.tv_nsec - ready_queue[i]->start_time.tv_nsec)/1e9;
-                        printf("Process %s (PID %d) completed.\n", ready_queue[i]->name,
-                               ready_queue[i]->pid);
-                        printf("Duration: %f\n",ready_queue[i]->wait_time);
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Move to the next process in a round-robin fashion
-        current_process = (current_process + 1) % num_processes;
+        printf("%d %s %d %f\n", ready_queue[i]->pid, ready_queue[i]->name, ready_queue[i]->state,ready_queue[i]->start_time.tv_nsec/1e9);
     }
-    // printf("In scheduler\n");
-    // for (int i = front; i < num_processes; i++)
-    // {
-    //     printf("%d %s %d %f\n", ready_queue[i]->pid, ready_queue[i]->name, ready_queue[i]->state,ready_queue[i]->start_time.tv_nsec/1e9);
-    // }
 }
 
 // main shell loop
