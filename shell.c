@@ -215,8 +215,17 @@ bool validate_command(char *command)
     return false;
 }
 
+void sigchld_handler(int signum){
+
+}
+
 void timer_handler(int signum) {
-    printf("Timer expired!\n");
+    for (int i = 0; i < rear_r-front_r+1; i++){
+        kill(running_queue[i]->pid,SIGSTOP);
+        process* p = remove_process_r(running_queue[i]);
+        p->state =  READY;
+        add_process(p);
+    }
 }
 
 void create_timer(){
@@ -257,12 +266,19 @@ void create_timer(){
 
 void scheduler(int ncpu, int tslice)
 {
-    create_timer();
-    printf("In scheduler\n");
-    for (int i = front; i < num_processes; i++)
-    {
-        sleep(1);
-        printf("%d %s %d %f\n", ready_queue[i]->pid, ready_queue[i]->name, ready_queue[i]->state,ready_queue[i]->start_time.tv_nsec/1e9);
+    // create_timer();
+    // printf("In scheduler\n");
+    // for (int i = front; i < num_processes; i++)
+    // {
+    //     sleep(1);
+    //     printf("%d %s %d %f\n", ready_queue[i]->pid, ready_queue[i]->name, ready_queue[i]->state,ready_queue[i]->start_time.tv_nsec/1e9);
+    // }
+    for (int i = front; i < front + ncpu; i++){
+        create_timer();
+        kill(ready_queue[i]->pid,SIGCONT);
+        process* p = remove_process(ready_queue[i]);
+        p->state = RUNNING;
+        add_process_r(p);
     }
 }
 
@@ -277,6 +293,10 @@ void shell_loop()
     if (signal(SIGALRM, timer_handler) == SIG_ERR)
     {
         perror("SIGALRM handling failed");
+    }
+    if (signal(SIGCHLD, sigchld_handler) == SIG_ERR)
+    {
+        perror("SIGCHLD handling failed");
     }
     // Creating the prompt text
     char *user = getenv("USER");
@@ -367,7 +387,9 @@ void shell_loop()
                 { // Child process
                     // Wait for the scheduler signal before starting execution
                     raise(SIGSTOP);
-                    execl(program, program, (char *)NULL);
+                    // execl(program, program, (char *)NULL);
+                    char* temp[1] = {args[1]};
+                    execvp(args[1],temp);
                     fprintf(stderr, "Error executing %s\n", program);
                     exit(1);
                 }

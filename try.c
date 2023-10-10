@@ -25,6 +25,15 @@ process* ready_queue[MAX_PROCESSES];
 int front = 0;
 int rear = -1;
 
+process* running_queue[MAX_PROCESSES];
+int front_r = 0;
+int rear_r = -1;
+
+void add_process_r(process* p){
+    rear_r++;
+    running_queue[rear_r] = p;
+}
+
 void add_process(process* p){
     rear++;
     ready_queue[rear] = p;
@@ -40,6 +49,17 @@ process* remove_process(process* p){
     p = ready_queue[front];
     front++;
     num_processes--;
+    return p;
+}
+
+process* remove_process_r(process* p){
+    if (front_r > rear_r) {
+        process* empty_process;
+        empty_process->pid = -1;
+        return empty_process;
+    }
+    p = running_queue[front_r];
+    front_r++;
     return p;
 }
 
