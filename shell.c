@@ -212,7 +212,34 @@ bool validate_command(char *command)
     }
     return false;
 }
+static void start_handler(int signum){
+    printf("start\n");
+    if (signum == SIGUSR1){
+        printf("Received signal. Adding\n");
 
+        for (int j = 0 ; j<num_processes;j++){
+            add_process(process_table[j]);
+        }
+        
+        for (int i = 0 ; i < NCPU ; i++){
+            int status = fork();
+            if (status < 0)
+            {
+                perror("Fork Failed");
+            }
+            else if (status == 0)
+            {
+
+            }
+            else
+            {
+            
+             }
+        }
+    }
+
+
+}
 // main shell loop
 void shell_loop()
 {
@@ -220,6 +247,10 @@ void shell_loop()
     if (signal(SIGINT, my_handler) == SIG_ERR)
     {
         perror("SIGINT handling failed");
+    }
+    if (signal(SIGUSR1, start_handler) == SIG_ERR)
+    {
+        perror("SIGUSR1 handling failed");
     }
     // Creating the prompt text
     char *user = getenv("USER");
@@ -291,6 +322,10 @@ void shell_loop()
                 continue;
             }
         }
+        else if (strstr(command , "run")){
+            printf("Sending signal\n");
+            kill(getpid(),SIGUSR1);
+        }
         else
         {
             char **args = tokenize(command, " ");
@@ -300,9 +335,9 @@ void shell_loop()
                 process* p = create_process(args[1]);
                 add_process_table(p);
                 num_processes++;
-                for (int j = 0; j < num_processes; j++){
-                    printf("%s\n",process_table[j].name);
-                }
+                // for (int j = 0; j < num_processes; j++){
+                //     printf("%s\n",process_table[j].name);
+                // }
                 status = 1;
             }else{
                 status = launch(args);
@@ -325,8 +360,8 @@ int main(int argc, char *argv[])
     }
     NCPU = atoi(argv[1]);
     TSLICE = atoi(argv[2]);
-    printf("%d\n", NCPU);
-    printf("%d\n", TSLICE);
+    // printf("%d\n", NCPU);
+    // printf("%d\n", TSLICE);
     // initializing count for elements in history
     history.historyCount = 0;
     shell_loop();
