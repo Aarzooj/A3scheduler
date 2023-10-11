@@ -1,3 +1,51 @@
+// #include <stdio.h>
+// #include <stdlib.h>
+// #include <string.h>
+// #include <unistd.h>
+// #include <sys/wait.h>
+// #include <time.h>
+// #include <stdbool.h>
+
+// void timer_handler(int signum) {
+//     printf("Timer expired!\n");
+// }
+
+// void create_timer(){
+//     struct sigevent se;
+//     timer_t timer;
+//     struct itimerspec its;
+//     long long milliseconds = 3000;
+
+//     // Create a timer
+//     se.sigev_notify = SIGEV_SIGNAL;
+//     se.sigev_signo = SIGALRM;
+//     // sev.sigev_notify_function = timer_handler;
+//     // sev.sigev_value.sival_ptr = &timerid;
+//     se.sigev_value.sival_ptr = &timer;
+//     se.sigev_value.sival_int = 0;
+//     if (timer_create(CLOCK_REALTIME, &se, &timer) == -1) {
+//         perror("timer_create");
+//         exit(1);
+//     }
+
+//     // Set the timer to expire in milliseconds
+//     its.it_value.tv_sec = milliseconds / 1000; // Whole seconds
+//     its.it_value.tv_nsec = (milliseconds % 1000) * 1000000; // Nanoseconds for the remaining milliseconds
+//     its.it_interval.tv_sec = 0; // Non-repeating timer
+//     its.it_interval.tv_nsec = 0;
+
+//     if (timer_settime(timer, TIMER_ABSTIME, &its,NULL) == -1) {
+//         perror("timer_settime");
+//         exit(1);
+//     }
+//     printf("Timer created");
+// }
+
+// int main() {
+    
+//     return 0
+// }
+
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,6 +55,9 @@
 #include <unistd.h>
 #include <signal.h>
 #include <semaphore.h>
+
+// #include "try.c"
+// #include "scheduler.h"
 
 sem_t exit_mutex; /* Semaphore mutex used to signal between main() and sigint_handler(). */
 
@@ -75,7 +126,16 @@ static void sigalrm_handler(int sig)
     (void)sig; /* Avoid compiler warning -Werror-unused-parameter. */
 
     /* Do interesting thing here... */
-    write(STDOUT_FILENO, "Timer expired\n", 15);
+    int start = front_r;
+    int end = rear_r;
+    for (int i = start; i < end; i++){
+        printf("Stopped process: %s\n",running_queue[i]->name);
+        kill(running_queue[i]->pid,SIGSTOP);
+        process* p = remove_process_r(running_queue[i]);
+        p->state =  READY;
+        add_process(p);
+    }
+    // write(STDOUT_FILENO, "Timer expired\n", 15);
 }
 
 static void print_error_and_exit(const char *msg)
