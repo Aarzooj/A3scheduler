@@ -5,10 +5,13 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <stdbool.h>
+#include <sys/types.h>
+#include <signal.h>
 // #include <librt.h>
 
-#include "dummy_main.h"
+// #include "dummy_main.h"
 #include "try.c"
+#include "test.c"
 
 // defining sizes for data structures allocated
 #define INPUT_SIZE 256
@@ -218,67 +221,81 @@ bool validate_command(char *command)
     return false;
 }
 
-void sigchld_handler(int signum){
-
+void sigchld_handler(int signum)
+{
 }
 
-void timer_handler(int signum) {
-    // for (int i = front_r; i < rear_r; i++){
-    //     printf("Stopped process: %s\n",running_queue[i]->name);
-    //     kill(running_queue[i]->pid,SIGSTOP);
-    //     process* p = remove_process_r(running_queue[i]);
-    //     p->state =  READY;
-    //     add_process(p);
-    // }
-    printf("Timer expired\n");
-    scheduler(NCPU,TSLICE);
-}
+// void timer_handler(int signum)
+// {
+//     // for (int i = front_r; i < rear_r; i++){
+//     //     printf("Stopped process: %s\n",running_queue[i]->name);
+//     //     kill(running_queue[i]->pid,SIGSTOP);
+//     //     process* p = remove_process_r(running_queue[i]);
+//     //     p->state =  READY;
+//     //     add_process(p);
+//     // }
+//     printf("Timer expired\n");
+//     scheduler(NCPU, TSLICE);
+// }
 
-void create_timer() {
-    struct sigevent se;
-    timer_t timer;
-    struct itimerspec its;
-    long long milliseconds = TSLICE;
+// static int init_action(int sig, int flags, void (*handler)(int))
+// {
+//     struct sigaction action;
+//     action.sa_flags = flags;
+//     action.sa_handler = handler;
+//     sigemptyset(&action.sa_mask);
 
-    // Create a timer
-    se.sigev_notify = SIGEV_SIGNAL;
-    se.sigev_signo = SIGALRM;
-    se.sigev_value.sival_ptr = &timer;
-    se.sigev_value.sival_int = 0;
-    if (timer_create(CLOCK_REALTIME, &se, &timer) == -1) {
-        perror("timer_create");
-        exit(1);
-    }
+//     return sigaction(sig, &action, NULL);
+// }
 
-    // Set the timer interval for repetition
-    its.it_interval.tv_sec = milliseconds/1000;
-    its.it_interval.tv_nsec = 0; // Repeat every TSLICE milliseconds
+// void create_timer()
+// {
+//     struct sigevent se;
+//     timer_t timer;
+//     struct itimerspec its;
+//     long long nanoseconds = TSLICE * 1e6;
+//     static const long long SEC_TO_NSEC = 1000000000LL;
 
-    // Get the current time
-    struct timespec now;
-    clock_gettime(CLOCK_REALTIME, &now);
+//     // Create a timer
+//     se.sigev_notify = SIGEV_SIGNAL;
+//     se.sigev_signo = SIGALRM;
+//     se.sigev_value.sival_ptr = &timer;
+//     se.sigev_value.sival_int = 0;
+//     if (timer_create(CLOCK_REALTIME, &se, &timer) == -1)
+//     {
+//         perror("timer_create");
+//         exit(1);
+//     }
 
-    // Calculate the initial expiration time
-    its.it_value.tv_sec = now.tv_sec + (milliseconds / 1000);
-    its.it_value.tv_nsec = (now.tv_nsec + (milliseconds % 1000) * 1000000) % 1000000000;
+//     // Set the timer interval for repetition
+//     its.it_interval.tv_sec = nanoseconds / SEC_TO_NSEC;
+//     its.it_interval.tv_nsec = nanoseconds % SEC_TO_NSEC; // Repeat every TSLICE milliseconds
 
+//     // Get the current time
+//     struct timespec now;
+//     clock_gettime(CLOCK_REALTIME, &now);
 
-    if (timer_settime(timer, TIMER_ABSTIME, &its, NULL) == -1) {
-        perror("timer_settime");
-        exit(1);
-    }
-    // raise(SIGALRM);
-    // Print the message "Timer created"
-    struct sigaction sa;
+//     // Calculate the initial expiration time
+//     its.it_value.tv_sec = now.tv_sec + (nanoseconds / SEC_TO_NSEC);
+//     // its.it_value.tv_nsec = (now.tv_nsec + (milliseconds % 1000) * 1000000) % 1000000000;
+//     its.it_value.tv_nsec = (now.tv_nsec + nanoseconds) % SEC_TO_NSEC;
 
-    // Set up the handler for SIGALRM
-    sa.sa_handler = timer_handler;
-    sa.sa_flags = 0;
-    sigemptyset(&sa.sa_mask);
-    sigaction(SIGALRM, &sa, NULL);
-    printf("Timer created\n");
-}
+//     if (timer_settime(timer, 0, &its, NULL) == -1)
+//     {
+//         perror("timer_settime");
+//         exit(1);
+//     }
+//     // raise(SIGALRM);
+//     // Print the message "Timer created"
+//     // struct sigaction sa;
 
+//     // // Set up the handler for SIGALRM
+//     // sa.sa_handler = timer_handler;
+//     // sa.sa_flags = 0;
+//     // sigemptyset(&sa.sa_mask);
+//     // sigaction(SIGALRM, &sa, NULL);
+//     printf("Timer created\n");
+// }
 
 void scheduler(int ncpu, int tslice)
 {
@@ -296,10 +313,12 @@ void scheduler(int ncpu, int tslice)
     test3: factorial.c
     test4: helloworld.c
     */
-   if (timer_created < 1){
-        create_timer();
-        timer_created++;
-   }
+    //    if (timer_created < 1){
+    //         create_timer();
+    //         timer_created++;
+    //    }
+    if (-1 == init_interval_timer(tslice * 1e6))
+        print_error_and_exit("init_interval_timer");
     // for (int i = front; i < front + ncpu; i++){
     //     printf("%d\n",ready_queue[i]->pid);
     //     printf("Runned process: %s\n",ready_queue[i]->name);
@@ -322,6 +341,10 @@ void shell_loop()
     // {
     //     perror("SIGALRM handling failed");
     // }
+    if (init_action(SIGALRM, SA_RESTART, sigalrm_handler) == -1)
+    {
+        perror("SIGALRM handling failed");
+    }
     if (signal(SIGCHLD, sigchld_handler) == SIG_ERR)
     {
         perror("SIGCHLD handling failed");
@@ -408,18 +431,16 @@ void shell_loop()
             history.record[history.historyCount].start_time = time(NULL);
             if (strcmp(args[0], "submit") == 0)
             {
-                char program[MAX_PROGRAM_NAME];
-                sscanf(command, "submit %s", program);
 
                 pid_t pid = fork();
                 if (pid == 0)
                 { // Child process
                     // Wait for the scheduler signal before starting execution
-                    kill(getpid(),SIGSTOP);
+                    kill(getpid(), SIGSTOP);
                     // execl(program, program, (char *)NULL);
-                    char* temp[1] = {args[1]};
-                    execvp(args[1],temp);
-                    fprintf(stderr, "Error executing %s\n", program);
+                    char *temp[1] = {args[1]};
+                    execvp(args[1], temp);
+                    fprintf(stderr, "Error executing %s\n", args[1]);
                     exit(1);
                 }
                 else if (pid > 0)
