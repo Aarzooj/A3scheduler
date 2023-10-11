@@ -42,7 +42,7 @@ void add_process(process* p){
 
 process* remove_process(process* p){
     if (front > rear) {
-        process* empty_process;
+        process* empty_process = create_process("None");
         empty_process->pid = -1;
         return empty_process;
     }
@@ -54,7 +54,7 @@ process* remove_process(process* p){
 
 process* remove_process_r(process* p){
     if (front_r > rear_r) {
-        process* empty_process;
+        process* empty_process = create_process("None");
         empty_process->pid = -1;
         return empty_process;
     }

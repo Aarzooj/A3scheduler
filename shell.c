@@ -220,15 +220,17 @@ void sigchld_handler(int signum){
 }
 
 void timer_handler(int signum) {
-    for (int i = 0; i < rear_r-front_r+1; i++){
+    for (int i = front_r; i < rear_r-front_r+1; i++){
+        printf("Stopped process: %s\n",running_queue[i]->name);
         kill(running_queue[i]->pid,SIGSTOP);
         process* p = remove_process_r(running_queue[i]);
         p->state =  READY;
         add_process(p);
     }
+    printf("Timer expired\n");
 }
 
-void create_timer(){
+void create_timer() {
     struct sigevent se;
     timer_t timer;
     struct itimerspec its;
@@ -244,25 +246,27 @@ void create_timer(){
         exit(1);
     }
 
+    // Set the timer interval for repetition
+    its.it_interval.tv_sec = milliseconds/1000;
+    its.it_interval.tv_nsec = 0; // Repeat every TSLICE milliseconds
+
     // Get the current time
     struct timespec now;
     clock_gettime(CLOCK_REALTIME, &now);
 
-    // Calculate the absolute time at which the timer should expire
+    // Calculate the initial expiration time
     its.it_value.tv_sec = now.tv_sec + (milliseconds / 1000);
-    its.it_value.tv_nsec = (now.tv_nsec + (milliseconds % 1000) * 1000000) % 1000000000;
-
-    its.it_interval.tv_sec = 0; // Non-repeating timer
-    its.it_interval.tv_nsec = 0;
+    its.it_value.tv_nsec = 0;
 
     if (timer_settime(timer, TIMER_ABSTIME, &its, NULL) == -1) {
         perror("timer_settime");
         exit(1);
     }
-
+    // raise(SIGALRM);
     // Print the message "Timer created"
     printf("Timer created\n");
 }
+
 
 void scheduler(int ncpu, int tslice)
 {
@@ -273,8 +277,17 @@ void scheduler(int ncpu, int tslice)
     //     sleep(1);
     //     printf("%d %s %d %f\n", ready_queue[i]->pid, ready_queue[i]->name, ready_queue[i]->state,ready_queue[i]->start_time.tv_nsec/1e9);
     // }
+
+    /*
+    test1: count_vowels.c
+    test2: fib.c
+    test3: factorial.c
+    test4: helloworld.c
+    */
+    create_timer();
     for (int i = front; i < front + ncpu; i++){
-        create_timer();
+        printf("%d\n",ready_queue[i]->pid);
+        printf("Runned process: %s\n",ready_queue[i]->name);
         kill(ready_queue[i]->pid,SIGCONT);
         process* p = remove_process(ready_queue[i]);
         p->state = RUNNING;
@@ -386,7 +399,7 @@ void shell_loop()
                 if (pid == 0)
                 { // Child process
                     // Wait for the scheduler signal before starting execution
-                    raise(SIGSTOP);
+                    kill(getpid(),SIGSTOP);
                     // execl(program, program, (char *)NULL);
                     char* temp[1] = {args[1]};
                     execvp(args[1],temp);
