@@ -231,6 +231,7 @@ void sigchld_handler(int signum)
             {
                 // running_queue[i]->pid = -1;
                 printf("Process terminated: %s\n",running_queue[i]->name);
+                free(running_queue[i]);
                 for (int j = i; j < rear_r ; j++)
                 {
                     running_queue[j] = running_queue[j + 1];

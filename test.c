@@ -133,19 +133,16 @@ static void sigalrm_handler(int sig)
     int end = rear_r + 1;
     for (int i = start; i < end; i++)
     {
-        if (running_queue[i]->pid != -1)
+        printf("RUNNING QUEUE --->\n");
+        for (int j = front_r; j < rear_r + 1; j++)
         {
-            printf("RUNNING QUEUE --->\n");
-            for (int j = front_r; j < rear_r + 1; j++)
-            {
-                printf("%s %d\n", running_queue[j]->name,running_queue[j]->state);
-            }
-            printf("Stopped process: %s\n", running_queue[i]->name);
-            kill(running_queue[i]->pid, SIGSTOP);
-            process *p = remove_process_r(running_queue[i]);
-            p->state = READY;
-            add_process(p);
+            printf("%s %d\n", running_queue[j]->name, running_queue[j]->state);
         }
+        printf("Stopped process: %s\n", running_queue[i]->name);
+        kill(running_queue[i]->pid, SIGSTOP);
+        process *p = remove_process_r(running_queue[i]);
+        p->state = READY;
+        add_process(p);
     }
     // write(STDOUT_FILENO, "Timer expired\n", 15);
 }
