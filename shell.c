@@ -15,6 +15,9 @@
 #define HISTORY_SIZE 100
 #define MAX_PROGRAM_NAME 50
 
+void scheduler(int ncpu, int tslice);
+int timer_created = 0;
+
 int NCPU;
 int TSLICE;
 
@@ -220,14 +223,15 @@ void sigchld_handler(int signum){
 }
 
 void timer_handler(int signum) {
-    for (int i = front_r; i < rear_r-front_r+1; i++){
-        printf("Stopped process: %s\n",running_queue[i]->name);
-        kill(running_queue[i]->pid,SIGSTOP);
-        process* p = remove_process_r(running_queue[i]);
-        p->state =  READY;
-        add_process(p);
-    }
+    // for (int i = front_r; i < rear_r; i++){
+    //     printf("Stopped process: %s\n",running_queue[i]->name);
+    //     kill(running_queue[i]->pid,SIGSTOP);
+    //     process* p = remove_process_r(running_queue[i]);
+    //     p->state =  READY;
+    //     add_process(p);
+    // }
     printf("Timer expired\n");
+    scheduler(NCPU,TSLICE);
 }
 
 void create_timer() {
@@ -256,7 +260,8 @@ void create_timer() {
 
     // Calculate the initial expiration time
     its.it_value.tv_sec = now.tv_sec + (milliseconds / 1000);
-    its.it_value.tv_nsec = 0;
+    its.it_value.tv_nsec = (now.tv_nsec + (milliseconds % 1000) * 1000000) % 1000000000;
+
 
     if (timer_settime(timer, TIMER_ABSTIME, &its, NULL) == -1) {
         perror("timer_settime");
@@ -264,6 +269,13 @@ void create_timer() {
     }
     // raise(SIGALRM);
     // Print the message "Timer created"
+    struct sigaction sa;
+
+    // Set up the handler for SIGALRM
+    sa.sa_handler = timer_handler;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGALRM, &sa, NULL);
     printf("Timer created\n");
 }
 
@@ -284,15 +296,18 @@ void scheduler(int ncpu, int tslice)
     test3: factorial.c
     test4: helloworld.c
     */
-    create_timer();
-    for (int i = front; i < front + ncpu; i++){
-        printf("%d\n",ready_queue[i]->pid);
-        printf("Runned process: %s\n",ready_queue[i]->name);
-        kill(ready_queue[i]->pid,SIGCONT);
-        process* p = remove_process(ready_queue[i]);
-        p->state = RUNNING;
-        add_process_r(p);
-    }
+   if (timer_created < 1){
+        create_timer();
+        timer_created++;
+   }
+    // for (int i = front; i < front + ncpu; i++){
+    //     printf("%d\n",ready_queue[i]->pid);
+    //     printf("Runned process: %s\n",ready_queue[i]->name);
+    //     kill(ready_queue[i]->pid,SIGCONT);
+    //     process* p = remove_process(ready_queue[i]);
+    //     p->state = RUNNING;
+    //     add_process_r(p);
+    // }
 }
 
 // main shell loop
@@ -303,10 +318,10 @@ void shell_loop()
     {
         perror("SIGINT handling failed");
     }
-    if (signal(SIGALRM, timer_handler) == SIG_ERR)
-    {
-        perror("SIGALRM handling failed");
-    }
+    // if (signal(SIGALRM, timer_handler) == SIG_ERR)
+    // {
+    //     perror("SIGALRM handling failed");
+    // }
     if (signal(SIGCHLD, sigchld_handler) == SIG_ERR)
     {
         perror("SIGCHLD handling failed");
@@ -384,6 +399,7 @@ void shell_loop()
         else if (strstr(command, "run"))
         {
             scheduler(NCPU, TSLICE);
+            status = 1;
         }
         else
         {
