@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/time.h>
 #include <time.h>
 #include <stdbool.h>
 #include <sys/types.h>
@@ -17,9 +18,6 @@
 #define INPUT_SIZE 256
 #define HISTORY_SIZE 100
 #define MAX_PROGRAM_NAME 50
-
-void scheduler(int ncpu, int tslice);
-int timer_created = 0;
 
 int NCPU;
 int TSLICE;
@@ -223,7 +221,26 @@ bool validate_command(char *command)
 
 void sigchld_handler(int signum)
 {
-    
+    int status;
+    pid_t pid;
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
+    {
+        for (int i = front_r; i < rear_r; i++)
+        {
+            if (running_queue[i]->pid == pid)
+            {
+                // running_queue[i]->pid = -1;
+                printf("Process terminated: %s\n",running_queue[i]->name);
+                for (int j = i; j < rear_r ; j++)
+                {
+                    running_queue[j] = running_queue[j + 1];
+                }
+                running_queue[rear_r] = NULL;
+                rear_r--;
+                break;
+            }
+        }
+    }
 }
 
 void scheduler(int ncpu, int tslice)
@@ -242,12 +259,29 @@ void scheduler(int ncpu, int tslice)
     int start = front;
     for (int i = start; i < end; i++)
     {
-        // printf("%d\n",ready_queue[i]->pid);
-        printf("Runned process: %s\n", ready_queue[i]->name);
-        kill(ready_queue[i]->pid, SIGCONT);
-        process *p = remove_process(ready_queue[i]);
-        p->state = RUNNING;
-        add_process_r(p);
+        if (ready_queue[i] != NULL)
+        {
+            // if (ready_queue[rear]->state == COMPLETED){
+            //     ready_queue[rear] = NULL;
+            //     rear--;
+            // }
+            printf("READY QUEUE --->\n");
+            for (int j = front; j < rear + 1; j++)
+            {
+                printf("%s %d\n", ready_queue[j]->name,ready_queue[j]->state);
+            }
+            // printf("%d\n",ready_queue[i]->pid);
+            printf("Runned process: %s\n", ready_queue[i]->name);
+            kill(ready_queue[i]->pid, SIGCONT);
+            process *p = remove_process(ready_queue[i]);
+            p->state = RUNNING;
+            add_process_r(p);
+        }
+        else
+        {
+            printf("Ready queue is empty\n");
+            break;
+        }
     }
 }
 
@@ -360,6 +394,7 @@ void shell_loop()
                     // Wait for the scheduler signal before starting execution
                     kill(getpid(), SIGSTOP);
                     // execl(program, program, (char *)NULL);
+                    printf("Process continued: %s\n", args[1]);
                     char *temp[2] = {args[1], NULL};
                     execvp(args[1], temp);
                     fprintf(stderr, "Error executing %s\n", args[1]);

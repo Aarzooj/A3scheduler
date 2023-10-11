@@ -2,6 +2,7 @@
 
 #define READY 0
 #define RUNNING 1
+// #define COMPLETED 2
 #define MAX_PROCESSES 100
 
 int num_processes = 0;

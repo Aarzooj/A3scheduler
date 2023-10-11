@@ -42,7 +42,7 @@
 // }
 
 // int main() {
-    
+
 //     return 0
 // }
 
@@ -108,18 +108,21 @@ static int init_action(int sig, int flags, void (*handler)(int));
  */
 static int init_interval_timer(long long frequency_nsec);
 
-static void sigint_handler(int sig)
-{
-    (void)sig; /* Avoid compiler warning -Werror-unused-parameter. */
+// static void sigint_handler(int sig)
+// {
+//     (void)sig; /* Avoid compiler warning -Werror-unused-parameter. */
 
-    /* User hit CTRL-c meaning they want to exit the program. Post so that
-       main() becomes unblocked and can exit neatly. */
-    sem_post(&exit_mutex);
-    if (-1 == sem_post(&exit_mutex)) {
-        write(STDERR_FILENO, "sem_post() failed\n", 18);
-        _exit(EXIT_FAILURE);
-    }
-}
+//     /* User hit CTRL-c meaning they want to exit the program. Post so that
+//        main() becomes unblocked and can exit neatly. */
+//     sem_post(&exit_mutex);
+//     if (-1 == sem_post(&exit_mutex))
+//     {
+//         write(STDERR_FILENO, "sem_post() failed\n", 18);
+//         _exit(EXIT_FAILURE);
+//     }
+// }
+
+// void scheduler(int ncpu, int tslice);
 
 static void sigalrm_handler(int sig)
 {
@@ -127,13 +130,22 @@ static void sigalrm_handler(int sig)
 
     /* Do interesting thing here... */
     int start = front_r;
-    int end = rear_r;
-    for (int i = start; i < end; i++){
-        printf("Stopped process: %s\n",running_queue[i]->name);
-        kill(running_queue[i]->pid,SIGSTOP);
-        process* p = remove_process_r(running_queue[i]);
-        p->state =  READY;
-        add_process(p);
+    int end = rear_r + 1;
+    for (int i = start; i < end; i++)
+    {
+        if (running_queue[i]->pid != -1)
+        {
+            printf("RUNNING QUEUE --->\n");
+            for (int j = front_r; j < rear_r + 1; j++)
+            {
+                printf("%s %d\n", running_queue[j]->name,running_queue[j]->state);
+            }
+            printf("Stopped process: %s\n", running_queue[i]->name);
+            kill(running_queue[i]->pid, SIGSTOP);
+            process *p = remove_process_r(running_queue[i]);
+            p->state = READY;
+            add_process(p);
+        }
     }
     // write(STDOUT_FILENO, "Timer expired\n", 15);
 }
@@ -147,7 +159,7 @@ static void print_error_and_exit(const char *msg)
 static int init_action(int sig, int flags, void (*handler)(int))
 {
     struct sigaction action;
-    action.sa_flags   = flags;
+    action.sa_flags = flags;
     action.sa_handler = handler;
     sigemptyset(&action.sa_mask);
 
@@ -158,17 +170,17 @@ static int init_interval_timer(long long frequency_nsec)
 {
     timer_t timerid;
     struct sigevent evp;
-    evp.sigev_notify          = SIGEV_SIGNAL;
-    evp.sigev_signo           = SIGALRM;
+    evp.sigev_notify = SIGEV_SIGNAL;
+    evp.sigev_signo = SIGALRM;
     evp.sigev_value.sival_ptr = &timerid;
     if (-1 == timer_create(CLOCK_REALTIME, &evp, &timerid))
         return -1;
 
     static const long long SEC_TO_NSEC = 1000000000LL;
     struct itimerspec alarm;
-    alarm.it_value.tv_sec     = frequency_nsec / SEC_TO_NSEC;
-    alarm.it_value.tv_nsec    = frequency_nsec % SEC_TO_NSEC;
-    alarm.it_interval.tv_sec  = frequency_nsec / SEC_TO_NSEC;
+    alarm.it_value.tv_sec = frequency_nsec / SEC_TO_NSEC;
+    alarm.it_value.tv_nsec = frequency_nsec % SEC_TO_NSEC;
+    alarm.it_interval.tv_sec = frequency_nsec / SEC_TO_NSEC;
     alarm.it_interval.tv_nsec = frequency_nsec % SEC_TO_NSEC;
     if (-1 == timer_settime(timerid, 0, &alarm, NULL))
         return -1;
