@@ -1,26 +1,7 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <sys/time.h>
-#include <time.h>
-#include <stdbool.h>
-#include <sys/types.h>
-#include <signal.h>
-
-// #include "dummy_main.h"
+#include "scheduler.h"
+#include "SimpleScheduler.c"
 #include "timer.c"
 #include "queue.c"
-#include "SimpleScheduler.c"
-
-// defining sizes for data structures allocated
-#define INPUT_SIZE 256
-#define HISTORY_SIZE 100
-#define MAX_PROGRAM_NAME 50
-
-int NCPU;
-int TSLICE;
 
 // struct for each command stored in history
 struct CommandParameter
@@ -229,9 +210,14 @@ void sigchld_handler(int signum)
         {
             if (running_queue[i]->pid == pid)
             {
-                printf("Process terminated: %s\n",running_queue[i]->name);
-                // free(running_queue[i]);
-                for (int j = i; j < rear_r ; j++)
+                if (clock_gettime(CLOCK_MONOTONIC, &running_queue[i]->end_time) == -1)
+                {
+                    perror("clock_gettime");
+                    exit(EXIT_FAILURE);
+                }
+                printf("Process terminated: %s\n", running_queue[i]->name);
+                running_queue[i]->execution_time += ((running_queue[i]->end_time.tv_sec - running_queue[i]->start_time.tv_sec) * 1000) + (running_queue[i]->end_time.tv_nsec + running_queue[i]->start_time.tv_nsec) / 1e6;
+                for (int j = i; j < rear_r; j++)
                 {
                     running_queue[j] = running_queue[j + 1];
                 }
@@ -243,8 +229,9 @@ void sigchld_handler(int signum)
     }
 }
 
-void sigusr_handler(int signum){
-    scheduler(NCPU,TSLICE);
+void sigusr_handler(int signum)
+{
+    scheduler(NCPU, TSLICE);
 }
 
 // main shell loop
@@ -259,7 +246,7 @@ void shell_loop()
     {
         perror("SIGUSR1 handling failed");
     }
-    if (init_action(SIGALRM, SA_RESTART, sigalrm_handler) == -1)
+    if (set_sigalrm(SIGALRM, SA_RESTART, sigalrm_handler) == -1)
     {
         perror("SIGALRM handling failed");
     }
@@ -339,7 +326,7 @@ void shell_loop()
         }
         else if (strstr(command, "run"))
         {
-            kill(getpid(),SIGUSR1);
+            kill(getpid(), SIGUSR1);
         }
         else
         {
@@ -362,14 +349,9 @@ void shell_loop()
                 else if (pid > 0)
                 { // Parent process
                     // Add the process to the list
-                    kill(pid,SIGSTOP);
+                    kill(pid, SIGSTOP);
                     process *p = create_process(args[1]);
                     p->pid = pid;
-                    if (clock_gettime(CLOCK_MONOTONIC, &p->start_time) == -1)
-                    {
-                        perror("clock_gettime");
-                        exit(EXIT_FAILURE);
-                    }
                     add_process(p);
                     add_process_table(p);
                     num_processes++;

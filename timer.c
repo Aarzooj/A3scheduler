@@ -1,64 +1,4 @@
-// #include <stdio.h>
-// #include <stdlib.h>
-// #include <string.h>
-// #include <unistd.h>
-// #include <sys/wait.h>
-// #include <time.h>
-// #include <stdbool.h>
-
-// void timer_handler(int signum) {
-//     printf("Timer expired!\n");
-// }
-
-// void create_timer(){
-//     struct sigevent se;
-//     timer_t timer;
-//     struct itimerspec its;
-//     long long milliseconds = 3000;
-
-//     // Create a timer
-//     se.sigev_notify = SIGEV_SIGNAL;
-//     se.sigev_signo = SIGALRM;
-//     // sev.sigev_notify_function = timer_handler;
-//     // sev.sigev_value.sival_ptr = &timerid;
-//     se.sigev_value.sival_ptr = &timer;
-//     se.sigev_value.sival_int = 0;
-//     if (timer_create(CLOCK_REALTIME, &se, &timer) == -1) {
-//         perror("timer_create");
-//         exit(1);
-//     }
-
-//     // Set the timer to expire in milliseconds
-//     its.it_value.tv_sec = milliseconds / 1000; // Whole seconds
-//     its.it_value.tv_nsec = (milliseconds % 1000) * 1000000; // Nanoseconds for the remaining milliseconds
-//     its.it_interval.tv_sec = 0; // Non-repeating timer
-//     its.it_interval.tv_nsec = 0;
-
-//     if (timer_settime(timer, TIMER_ABSTIME, &its,NULL) == -1) {
-//         perror("timer_settime");
-//         exit(1);
-//     }
-//     printf("Timer created");
-// }
-
-// int main() {
-
-//     return 0
-// }
-
-#include <time.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <errno.h>
-
-#include <unistd.h>
-#include <signal.h>
-
-#include "queue.c"
-
-void shell_loop();
-void displayProcesses();
+// Reference: https://gist.github.com/ivan-guerra/8366162f90970490d866617021867ae1
 
 /*!
  * \brief SIGINT interrupt handler.
@@ -70,19 +10,17 @@ void displayProcesses();
  *          to exit.
  * \param sig Signal number (i.e., SIGINT).
  */
-static void sigint_handler(int sig);
 
 /*!
  * \brief Write "hello world" to STDOUT.
  * \param sig Signal number (i.e., SIGALRM).
  */
-static void sigalrm_handler(int sig);
+
 
 /*!
  * \brief Call perror() with argument message \a msg and exit with EXIT_FAILURE.
  * \param msg Error message to be output by perror().
  */
-static void print_error_and_exit(const char *msg);
 
 /*!
  * \brief Define this process' action on the signal \a sig.
@@ -92,7 +30,7 @@ static void print_error_and_exit(const char *msg);
  * \param handler Signal handler function.
  * \return 0 on success, -1 on failure. Call perror() for failure details.
  */
-static int init_action(int sig, int flags, void (*handler)(int));
+
 
 /*!
  * \brief Create an interval timer that triggers every \a frequency_nsec nsec.
@@ -105,9 +43,9 @@ static int init_action(int sig, int flags, void (*handler)(int));
  *                       nanoseconds.
  * \return 0 on success, -1 on failure. Call perror() for failure details.
  */
-static int init_interval_timer(long long frequency_nsec);
 
-void scheduler(int ncpu, int tslice);
+
+timer_t timer;
 
 static void sigalrm_handler(int sig)
 {
@@ -124,27 +62,26 @@ static void sigalrm_handler(int sig)
             printf("%s %d\n", running_queue[j]->name, running_queue[j]->state);
         }
         printf("Stopped process: %s\n", running_queue[i]->name);
+        running_queue[i]->execution_time += TSLICE;
         kill(running_queue[i]->pid, SIGSTOP);
         process *p = remove_process_r(running_queue[i]);
         p->state = READY;
         add_process(p);
     }
     if (is_empty()){
+        printf("CPU CYCLE: %d\n",++CPU_CYCLES);
+        CPU_CYCLES = 0;
         displayProcesses();
         shell_loop();
     }
     else{
+        printf("CPU CYCLE: %d\n",++CPU_CYCLES);
+        timer_delete(timer);
         scheduler(NCPU,TSLICE);
     }
 }
 
-static void print_error_and_exit(const char *msg)
-{
-    perror(msg);
-    exit(EXIT_FAILURE);
-}
-
-static int init_action(int sig, int flags, void (*handler)(int))
+static int set_sigalrm(int sig, int flags, void (*handler)(int))
 {
     struct sigaction action;
     action.sa_flags = flags;
@@ -152,23 +89,22 @@ static int init_action(int sig, int flags, void (*handler)(int))
     return sigaction(sig, &action, NULL);
 }
 
-static int init_interval_timer(long long frequency_nsec)
+static int timer_handler(long long frequency_nsec)
 {
-    timer_t timerid;
-    struct sigevent evp;
-    evp.sigev_notify = SIGEV_SIGNAL;
-    evp.sigev_signo = SIGALRM;
-    evp.sigev_value.sival_ptr = &timerid;
-    if (-1 == timer_create(CLOCK_REALTIME, &evp, &timerid))
+    struct sigevent notif;
+    struct itimerspec alarm;
+    notif.sigev_notify = SIGEV_SIGNAL;
+    notif.sigev_signo = SIGALRM;
+    notif.sigev_value.sival_ptr = &timer;
+    if (timer_create(CLOCK_REALTIME, &notif, &timer)==-1)
         return -1;
 
     static const long long SEC_TO_NSEC = 1000000000LL;
-    struct itimerspec alarm;
     alarm.it_value.tv_sec = frequency_nsec / SEC_TO_NSEC;
     alarm.it_value.tv_nsec = frequency_nsec % SEC_TO_NSEC;
     alarm.it_interval.tv_sec = 0;
     alarm.it_interval.tv_nsec = 0;
-    if (-1 == timer_settime(timerid, 0, &alarm, NULL))
+    if (timer_settime(timer, 0, &alarm, NULL)==-1)
         return -1;
     return 0;
 }

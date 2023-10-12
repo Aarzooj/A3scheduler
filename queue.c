@@ -1,16 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <unistd.h>
-#include <stdbool.h>
-
-#include "scheduler.h"
-
-int TSLICE;
-int NCPU;
-
-long long start_ms;
-long long end_ms;
+// #include "scheduler.h"
 
 process* create_process(char* name){
     process* p = (process*)malloc(sizeof(process));
@@ -19,16 +7,9 @@ process* create_process(char* name){
     p->name = name;
     p->execution_time = 0;
     p->wait_time = 0;
+    p->prev_cycle = 0;
     return p;
 }
-
-process* ready_queue[MAX_PROCESSES];
-int front = 0;
-int rear = -1;
-
-process* running_queue[MAX_PROCESSES];
-int front_r = 0;
-int rear_r = -1;
 
 void add_process_r(process* p){
     rear_r++;
@@ -38,7 +19,6 @@ void add_process_r(process* p){
 void add_process(process* p){
     rear++;
     ready_queue[rear] = p;
-    // num_processes++;
 }
 
 void add_process_table(process* p){
@@ -54,21 +34,20 @@ bool is_empty(){
 
 process* remove_process(process* p){
     if (front > rear) {
-        process* empty_process = create_process("None");
-        empty_process->pid = -1;
-        return empty_process;
+        process* dummy = create_process("None");
+        dummy->pid = -1;
+        return dummy;
     }
     p = ready_queue[front];
     front++;
-    // num_processes--;
     return p;
 }
 
 process* remove_process_r(process* p){
     if (front_r > rear_r) {
-        process* empty_process = create_process("None");
-        empty_process->pid = -1;
-        return empty_process;
+        process* dummy = create_process("None");
+        dummy->pid = -1;
+        return dummy;
     }
     p = running_queue[front_r];
     front_r++;
