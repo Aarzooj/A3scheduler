@@ -54,13 +54,11 @@
 
 #include <unistd.h>
 #include <signal.h>
-#include <semaphore.h>
+
+#include "queue.c"
 
 void shell_loop();
-// #include "try.c"
-// #include "scheduler.h"
-
-sem_t exit_mutex; /* Semaphore mutex used to signal between main() and sigint_handler(). */
+void displayProcesses();
 
 /*!
  * \brief SIGINT interrupt handler.
@@ -109,20 +107,6 @@ static int init_action(int sig, int flags, void (*handler)(int));
  */
 static int init_interval_timer(long long frequency_nsec);
 
-// static void sigint_handler(int sig)
-// {
-//     (void)sig; /* Avoid compiler warning -Werror-unused-parameter. */
-
-//     /* User hit CTRL-c meaning they want to exit the program. Post so that
-//        main() becomes unblocked and can exit neatly. */
-//     sem_post(&exit_mutex);
-//     if (-1 == sem_post(&exit_mutex))
-//     {
-//         write(STDERR_FILENO, "sem_post() failed\n", 18);
-//         _exit(EXIT_FAILURE);
-//     }
-// }
-
 void scheduler(int ncpu, int tslice);
 
 static void sigalrm_handler(int sig)
@@ -141,21 +125,17 @@ static void sigalrm_handler(int sig)
         }
         printf("Stopped process: %s\n", running_queue[i]->name);
         kill(running_queue[i]->pid, SIGSTOP);
-        // char *temp[2] = {running_queue[i]->name, NULL};
-        // execvp(running_queue[i]->name, temp);
         process *p = remove_process_r(running_queue[i]);
         p->state = READY;
         add_process(p);
     }
     if (is_empty()){
-        printf("Queues empty\n");
+        displayProcesses();
         shell_loop();
     }
     else{
         scheduler(NCPU,TSLICE);
     }
-    //scheduler(NCPU,TSLICE);
-    // write(STDOUT_FILENO, "Timer expired\n", 15);
 }
 
 static void print_error_and_exit(const char *msg)
@@ -169,8 +149,6 @@ static int init_action(int sig, int flags, void (*handler)(int))
     struct sigaction action;
     action.sa_flags = flags;
     action.sa_handler = handler;
-    // sigemptyset(&action.sa_mask);
-
     return sigaction(sig, &action, NULL);
 }
 
@@ -188,12 +166,9 @@ static int init_interval_timer(long long frequency_nsec)
     struct itimerspec alarm;
     alarm.it_value.tv_sec = frequency_nsec / SEC_TO_NSEC;
     alarm.it_value.tv_nsec = frequency_nsec % SEC_TO_NSEC;
-    // alarm.it_interval.tv_sec = frequency_nsec / SEC_TO_NSEC;
-    // alarm.it_interval.tv_nsec = frequency_nsec % SEC_TO_NSEC;
     alarm.it_interval.tv_sec = 0;
     alarm.it_interval.tv_nsec = 0;
     if (-1 == timer_settime(timerid, 0, &alarm, NULL))
         return -1;
     return 0;
 }
-    

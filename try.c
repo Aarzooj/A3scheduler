@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 #include "scheduler.h"
 
@@ -38,6 +39,11 @@ void add_process(process* p){
     rear++;
     ready_queue[rear] = p;
     // num_processes++;
+}
+
+void add_process_table(process* p){
+    process_table[total_processes] = p;
+    total_processes++;
 }
 
 bool is_empty(){

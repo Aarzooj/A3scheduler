@@ -8,11 +8,11 @@
 #include <stdbool.h>
 #include <sys/types.h>
 #include <signal.h>
-// #include <librt.h>
 
 // #include "dummy_main.h"
-#include "try.c"
-#include "test.c"
+#include "timer.c"
+#include "queue.c"
+#include "SimpleScheduler.c"
 
 // defining sizes for data structures allocated
 #define INPUT_SIZE 256
@@ -223,16 +223,14 @@ void sigchld_handler(int signum)
 {
     int status;
     pid_t pid;
-    // printf("SIGCHLD received\n");
     while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
     {
         for (int i = front_r; i < rear_r + 1; i++)
         {
             if (running_queue[i]->pid == pid)
             {
-                // running_queue[i]->pid = -1;
                 printf("Process terminated: %s\n",running_queue[i]->name);
-                free(running_queue[i]);
+                // free(running_queue[i]);
                 for (int j = i; j < rear_r ; j++)
                 {
                     running_queue[j] = running_queue[j + 1];
@@ -241,48 +239,6 @@ void sigchld_handler(int signum)
                 rear_r--;
                 break;
             }
-        }
-    }
-}
-
-void scheduler(int ncpu, int tslice)
-{
-    /*
-    test1: count_vowels.c
-    test2: fib.c
-    test3: factorial.c
-    test4: helloworld.c
-    */
-    if (-1 == init_interval_timer(tslice * 1e6))
-    {
-        print_error_and_exit("init_interval_timer");
-    }
-    int end = front + ncpu;
-    int start = front;
-    for (int i = start; i < end; i++)
-    {
-        if (ready_queue[i] != NULL)
-        {
-            // if (ready_queue[rear]->state == COMPLETED){
-            //     ready_queue[rear] = NULL;
-            //     rear--;
-            // }
-            printf("READY QUEUE --->\n");
-            for (int j = front; j < rear + 1; j++)
-            {
-                printf("%s %d\n", ready_queue[j]->name,ready_queue[j]->state);
-            }
-            // printf("%d\n",ready_queue[i]->pid);
-            printf("Runned process: %s\n", ready_queue[i]->name);
-            kill(ready_queue[i]->pid, SIGCONT);
-            process *p = remove_process(ready_queue[i]);
-            p->state = RUNNING;
-            add_process_r(p);
-        }
-        else
-        {
-            printf("Ready queue is empty\n");
-            break;
         }
     }
 }
@@ -384,8 +340,6 @@ void shell_loop()
         else if (strstr(command, "run"))
         {
             kill(getpid(),SIGUSR1);
-            // scheduler(NCPU, TSLICE);
-            // status = 1;
         }
         else
         {
@@ -399,8 +353,6 @@ void shell_loop()
                 if (pid == 0)
                 { // Child process
                     // Wait for the scheduler signal before starting execution
-                    // kill(getpid(), SIGSTOP);
-                    // execl(program, program, (char *)NULL);
                     printf("Process continued: %s\n", args[1]);
                     char *temp[2] = {args[1], NULL};
                     execvp(args[1], temp);
@@ -410,19 +362,16 @@ void shell_loop()
                 else if (pid > 0)
                 { // Parent process
                     // Add the process to the list
-                    // strcpy(ready_queue[num_processes].name, program);
-                    // ready_queue[num_processes].pid = pid;
-                    // ready_queue[num_processes].start_time = time(NULL);
                     kill(pid,SIGSTOP);
                     process *p = create_process(args[1]);
                     p->pid = pid;
-                    // p->start_time = time(NULL);
                     if (clock_gettime(CLOCK_MONOTONIC, &p->start_time) == -1)
                     {
                         perror("clock_gettime");
                         exit(EXIT_FAILURE);
                     }
                     add_process(p);
+                    add_process_table(p);
                     num_processes++;
                 }
                 else
@@ -463,8 +412,6 @@ int main(int argc, char *argv[])
     }
     NCPU = atoi(argv[1]);
     TSLICE = atoi(argv[2]);
-    // printf("%d\n", NCPU);
-    // printf("%d\n", TSLICE);
     // initializing count for elements in history
     history.historyCount = 0;
     shell_loop();
