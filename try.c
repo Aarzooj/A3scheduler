@@ -48,7 +48,7 @@ process* remove_process(process* p){
     }
     p = ready_queue[front];
     front++;
-    num_processes--;
+    // num_processes--;
     return p;
 }
 

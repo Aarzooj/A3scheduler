@@ -223,9 +223,12 @@ void sigchld_handler(int signum)
 {
     int status;
     pid_t pid;
+    // printf("SIGCHLD received\n");
     while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
     {
-        for (int i = front_r; i < rear_r; i++)
+        printf("yes\n");
+        printf("Front: %d\nRear: %d\n",front_r,rear_r);
+        for (int i = front_r; i < rear_r + 1; i++)
         {
             if (running_queue[i]->pid == pid)
             {
@@ -393,7 +396,7 @@ void shell_loop()
                 if (pid == 0)
                 { // Child process
                     // Wait for the scheduler signal before starting execution
-                    kill(getpid(), SIGSTOP);
+                    // kill(getpid(), SIGSTOP);
                     // execl(program, program, (char *)NULL);
                     printf("Process continued: %s\n", args[1]);
                     char *temp[2] = {args[1], NULL};
@@ -407,6 +410,7 @@ void shell_loop()
                     // strcpy(ready_queue[num_processes].name, program);
                     // ready_queue[num_processes].pid = pid;
                     // ready_queue[num_processes].start_time = time(NULL);
+                    kill(pid,SIGSTOP);
                     process *p = create_process(args[1]);
                     p->pid = pid;
                     // p->start_time = time(NULL);

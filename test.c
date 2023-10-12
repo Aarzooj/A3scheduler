@@ -140,6 +140,8 @@ static void sigalrm_handler(int sig)
         }
         printf("Stopped process: %s\n", running_queue[i]->name);
         kill(running_queue[i]->pid, SIGSTOP);
+        // char *temp[2] = {running_queue[i]->name, NULL};
+        // execvp(running_queue[i]->name, temp);
         process *p = remove_process_r(running_queue[i]);
         p->state = READY;
         add_process(p);
@@ -158,7 +160,7 @@ static int init_action(int sig, int flags, void (*handler)(int))
     struct sigaction action;
     action.sa_flags = flags;
     action.sa_handler = handler;
-    sigemptyset(&action.sa_mask);
+    // sigemptyset(&action.sa_mask);
 
     return sigaction(sig, &action, NULL);
 }
@@ -177,8 +179,10 @@ static int init_interval_timer(long long frequency_nsec)
     struct itimerspec alarm;
     alarm.it_value.tv_sec = frequency_nsec / SEC_TO_NSEC;
     alarm.it_value.tv_nsec = frequency_nsec % SEC_TO_NSEC;
-    alarm.it_interval.tv_sec = frequency_nsec / SEC_TO_NSEC;
-    alarm.it_interval.tv_nsec = frequency_nsec % SEC_TO_NSEC;
+    // alarm.it_interval.tv_sec = frequency_nsec / SEC_TO_NSEC;
+    // alarm.it_interval.tv_nsec = frequency_nsec % SEC_TO_NSEC;
+    alarm.it_interval.tv_sec = 0;
+    alarm.it_interval.tv_nsec = 0;
     if (-1 == timer_settime(timerid, 0, &alarm, NULL))
         return -1;
 
