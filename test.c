@@ -122,7 +122,7 @@ static int init_interval_timer(long long frequency_nsec);
 //     }
 // }
 
-// void scheduler(int ncpu, int tslice);
+void scheduler(int ncpu, int tslice);
 
 static void sigalrm_handler(int sig)
 {
@@ -146,6 +146,7 @@ static void sigalrm_handler(int sig)
         p->state = READY;
         add_process(p);
     }
+    scheduler(NCPU,TSLICE);
     // write(STDOUT_FILENO, "Timer expired\n", 15);
 }
 
@@ -185,7 +186,5 @@ static int init_interval_timer(long long frequency_nsec)
     alarm.it_interval.tv_nsec = 0;
     if (-1 == timer_settime(timerid, 0, &alarm, NULL))
         return -1;
-
-    printf("Timer created\n");
     return 0;
 }

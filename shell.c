@@ -226,8 +226,6 @@ void sigchld_handler(int signum)
     // printf("SIGCHLD received\n");
     while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
     {
-        printf("yes\n");
-        printf("Front: %d\nRear: %d\n",front_r,rear_r);
         for (int i = front_r; i < rear_r + 1; i++)
         {
             if (running_queue[i]->pid == pid)
