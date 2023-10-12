@@ -287,6 +287,10 @@ void scheduler(int ncpu, int tslice)
     }
 }
 
+void sigusr_handler(int signum){
+    scheduler(NCPU,TSLICE);
+}
+
 // main shell loop
 void shell_loop()
 {
@@ -295,10 +299,10 @@ void shell_loop()
     {
         perror("SIGINT handling failed");
     }
-    // if (signal(SIGALRM, timer_handler) == SIG_ERR)
-    // {
-    //     perror("SIGALRM handling failed");
-    // }
+    if (signal(SIGUSR1, sigusr_handler) == SIG_ERR)
+    {
+        perror("SIGUSR1 handling failed");
+    }
     if (init_action(SIGALRM, SA_RESTART, sigalrm_handler) == -1)
     {
         perror("SIGALRM handling failed");
@@ -379,8 +383,9 @@ void shell_loop()
         }
         else if (strstr(command, "run"))
         {
-            scheduler(NCPU, TSLICE);
-            status = 1;
+            kill(getpid(),SIGUSR1);
+            // scheduler(NCPU, TSLICE);
+            // status = 1;
         }
         else
         {
