@@ -40,6 +40,12 @@ void add_process(process* p){
     // num_processes++;
 }
 
+bool is_empty(){
+
+    return (front > rear && front_r > rear_r);
+    
+}
+
 process* remove_process(process* p){
     if (front > rear) {
         process* empty_process = create_process("None");

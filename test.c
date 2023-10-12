@@ -56,6 +56,7 @@
 #include <signal.h>
 #include <semaphore.h>
 
+void shell_loop();
 // #include "try.c"
 // #include "scheduler.h"
 
@@ -146,7 +147,14 @@ static void sigalrm_handler(int sig)
         p->state = READY;
         add_process(p);
     }
-    scheduler(NCPU,TSLICE);
+    if (is_empty()){
+        printf("Queues empty\n");
+        shell_loop();
+    }
+    else{
+        scheduler(NCPU,TSLICE);
+    }
+    //scheduler(NCPU,TSLICE);
     // write(STDOUT_FILENO, "Timer expired\n", 15);
 }
 
@@ -188,3 +196,4 @@ static int init_interval_timer(long long frequency_nsec)
         return -1;
     return 0;
 }
+    
