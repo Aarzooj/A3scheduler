@@ -21,7 +21,7 @@
 
 int num_processes = 0;
 int total_processes = 0;
-int i = 0;
+// int i = 0;
 int CPU_CYCLES = 0;
 
 int TSLICE;
@@ -60,6 +60,7 @@ void add_process_table(process* p);
 bool is_empty();
 process* remove_process(process* p);
 process* remove_process_r(process* p);
+void empty_process_table();
 
 void shell_loop();
 

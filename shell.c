@@ -226,6 +226,16 @@ void sigchld_handler(int signum)
                 break;
             }
         }
+        for (int i = 0; i < history.historyCount; i++)
+        {
+            if (history.record[i].process_pid == pid)
+            {
+                history.record[i].end_time = time(NULL);
+                history.record[i].duration = difftime(
+                    history.record[i].end_time,
+                    history.record[i].start_time);
+            }
+        }
     }
 }
 

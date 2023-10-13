@@ -1,7 +1,8 @@
 // #include "scheduler.h"
 
-process* create_process(char* name){
-    process* p = (process*)malloc(sizeof(process));
+process *create_process(char *name)
+{
+    process *p = (process *)malloc(sizeof(process));
     p->pid = 0;
     p->state = READY;
     p->name = name;
@@ -11,30 +12,45 @@ process* create_process(char* name){
     return p;
 }
 
-void add_process_r(process* p){
+void empty_process_table()
+{
+    for (int i = 0; i < total_processes; i++)
+    {
+        free(process_table[i]);
+        process_table[i] = NULL;
+    }
+    total_processes = 0;
+}
+
+void add_process_r(process *p)
+{
     rear_r++;
     running_queue[rear_r] = p;
 }
 
-void add_process(process* p){
+void add_process(process *p)
+{
     rear++;
     ready_queue[rear] = p;
 }
 
-void add_process_table(process* p){
+void add_process_table(process *p)
+{
     process_table[total_processes] = p;
     total_processes++;
 }
 
-bool is_empty(){
+bool is_empty()
+{
 
     return (front > rear && front_r > rear_r);
-    
 }
 
-process* remove_process(process* p){
-    if (front > rear) {
-        process* dummy = create_process("None");
+process *remove_process(process *p)
+{
+    if (front > rear)
+    {
+        process *dummy = create_process("None");
         dummy->pid = -1;
         return dummy;
     }
@@ -43,9 +59,11 @@ process* remove_process(process* p){
     return p;
 }
 
-process* remove_process_r(process* p){
-    if (front_r > rear_r) {
-        process* dummy = create_process("None");
+process *remove_process_r(process *p)
+{
+    if (front_r > rear_r)
+    {
+        process *dummy = create_process("None");
         dummy->pid = -1;
         return dummy;
     }
@@ -55,7 +73,7 @@ process* remove_process_r(process* p){
 }
 
 // int main(){
-    
+
 // }
 
 // int main() {

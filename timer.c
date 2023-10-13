@@ -72,6 +72,9 @@ static void sigalrm_handler(int sig)
         printf("CPU CYCLE: %d\n",++CPU_CYCLES);
         CPU_CYCLES = 0;
         displayProcesses();
+        num_processes = 0;
+        timer_delete(timer);
+        empty_process_table();
         shell_loop();
     }
     else{
@@ -86,6 +89,15 @@ static int set_sigalrm(int sig, int flags, void (*handler)(int))
     struct sigaction action;
     action.sa_flags = flags;
     action.sa_handler = handler;
+    sigset_t current_mask,set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGALRM);
+    sigprocmask(SIG_SETMASK, NULL, &current_mask);
+    if (sigismember(&current_mask, SIGALRM))
+    {
+        // SIGALRM is blocked; unblock it if necessary
+        sigprocmask(SIG_UNBLOCK, &set, NULL);
+    }
     return sigaction(sig, &action, NULL);
 }
 

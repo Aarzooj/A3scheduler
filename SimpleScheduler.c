@@ -6,6 +6,7 @@ void scheduler(int ncpu, int tslice)
     test3: factorial.c
     test4: helloworld.c
     */
+
     if (timer_handler(tslice * 1e6) == -1)
     {
         perror("Timer handler");
