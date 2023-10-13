@@ -35,11 +35,18 @@ void scheduler()
 void displayProcesses()
 {
     printf("--------------------------------\n");
+    double total_execution = 0;
+    long long total_wait = 0;
     for (int i = 0; i < total_processes; i++)
     {
         printf("submit %s\nPID: %d\nExecution time: %f ms\nWait time: %lld ms\n", process_table[i]->name, process_table[i]->pid, process_table[i]->execution_time, process_table[i]->wait_time);
         printf("--------------------------------\n");
+        total_execution += process_table[i]->execution_time;
+        total_wait += process_table[i]->wait_time;
     }
+    printf("\n");
+    printf("Average Execution Time: %f\n",total_execution/total_processes);
+    printf("Average Wait Time: %lld\n",total_wait/total_processes);
 }
 
 void move_ready_to_running(int front, int rear, process **ready_queue)
@@ -61,7 +68,9 @@ void move_ready_to_running(int front, int rear, process **ready_queue)
                 perror("clock_gettime");
                 exit(EXIT_FAILURE);
             }
-            kill(ready_queue[i]->pid, SIGCONT);
+            if (kill(ready_queue[i]->pid, SIGCONT) == -1){
+                perror("SimpleScheduler.c: SIGCONT failed\n");
+            }
             process *p = remove_process(ready_queue[i]);
             printf("%s\n",p->name);
             p->current_cycle = CPU_CYCLES + 1;

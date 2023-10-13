@@ -63,7 +63,9 @@ static void sigalrm_handler(int sig)
         }
         printf("Stopped process: %s\n", running_queue[i]->name);
         running_queue[i]->execution_time += TSLICE;
-        kill(running_queue[i]->pid, SIGSTOP);
+        if (kill(running_queue[i]->pid, SIGSTOP) == -1){
+            perror("timer.c: SIGSTOP signal failed\n");
+        }
         process *p = remove_process_r(running_queue[i]);
         p->state = READY;
         add_process(p);

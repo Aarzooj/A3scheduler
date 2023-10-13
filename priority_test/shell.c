@@ -336,7 +336,10 @@ void shell_loop()
         }
         else if (strstr(command, "run"))
         {
-            kill(getpid(), SIGUSR1);
+            if (kill(getpid(), SIGUSR1) == -1)
+            {
+                perror("SIGUSR1 call failed\n");
+            }
         }
         else
         {
@@ -352,23 +355,36 @@ void shell_loop()
                     // Wait for the scheduler signal before starting execution
                     printf("Process continued: %s\n", args[1]);
                     char *temp[2] = {args[1], NULL};
-                    execvp(args[1], temp);
-                    fprintf(stderr, "Error executing %s\n", args[1]);
-                    exit(1);
+                    if (execvp(args[1], temp) == -1)
+                    {
+                        printf("Error executing %s\n", args[1]);
+                        exit(1);
+                    }
                 }
                 else if (pid > 0)
                 { // Parent process
                     // Add the process to the list
-                    kill(pid, SIGSTOP);
+                    if (kill(pid, SIGSTOP) == -1)
+                    {
+                        perror("shell.c: SIGSTOP signal failed\n");
+                    }
                     process *p;
                     if (args[2] != NULL)
                     {
                         int pr = atoi(args[2]);
                         p = create_process(args[1], pr);
+                        if (p == NULL){
+                            perror("Allocation failed\n");
+                            exit(1);
+                        }
                     }
                     else
                     {
-                        p = create_process(args[1],1);
+                        p = create_process(args[1], 1);
+                        if (p == NULL){
+                            perror("Allocation failed\n");
+                            exit(1);
+                        }
                     }
                     p->pid = pid;
                     add_process(p);
@@ -377,7 +393,7 @@ void shell_loop()
                 }
                 else
                 {
-                    fprintf(stderr, "Fork failed\n");
+                    perror("Fork failed\n");
                     exit(1);
                 }
                 status = pid;
