@@ -40,20 +40,30 @@ typedef struct Process {
     long long wait_time;
     int prev_cycle;
     int current_cycle;
+    int priority;
 } process;
 
 process* process_table[MAX_PROCESSES];
 
-process* ready_queue[MAX_PROCESSES];
-int front = 0;
-int rear = -1;
+process* ready_queue1[MAX_PROCESSES];
+int front1 = 0;
+int rear1 = -1;
+process* ready_queue2[MAX_PROCESSES];
+int front2 = 0;
+int rear2 = -1;
+process* ready_queue3[MAX_PROCESSES];
+int front3 = 0;
+int rear3 = -1;
+process* ready_queue4[MAX_PROCESSES];
+int front4 = 0;
+int rear4 = -1;
 
 process* running_queue[MAX_PROCESSES];
 int front_r = 0;
 int rear_r = -1;
 
 // queue.c
-process* create_process(char* name);
+process* create_process(char* name, int priority);
 void add_process_r(process* p);
 void add_process(process* p);
 void add_process_table(process* p);
@@ -70,7 +80,8 @@ static int set_sigalrm(int sig, int flags, void (*handler)(int));
 static int timer_handler(long long frequency_nsec);
 
 //SimpleScheduler.c
-void scheduler(int ncpu, int tslice);
+void scheduler();
 void displayProcesses();
+void move_ready_to_running(int front, int rear, process **ready_queue);
 
 #endif

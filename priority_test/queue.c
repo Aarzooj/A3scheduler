@@ -1,6 +1,6 @@
 // #include "scheduler.h"
 
-process *create_process(char *name)
+process *create_process(char *name, int priority)
 {
     process *p = (process *)malloc(sizeof(process));
     p->pid = 0;
@@ -9,6 +9,7 @@ process *create_process(char *name)
     p->execution_time = 0;
     p->wait_time = 0;
     p->prev_cycle = 0;
+    p->priority = priority;
     return p;
 }
 
@@ -30,8 +31,27 @@ void add_process_r(process *p)
 
 void add_process(process *p)
 {
-    rear++;
-    ready_queue[rear] = p;
+    int pr = p->priority;
+    if (pr == 1)
+    {
+        rear1++;
+        ready_queue1[rear1] = p;
+    }
+    else if (pr == 2)
+    {
+        rear2++;
+        ready_queue2[rear2] = p;
+    }
+    else if (pr == 3)
+    {
+        rear3++;
+        ready_queue3[rear3] = p;
+    }
+    else if (pr == 4)
+    {
+        rear4++;
+        ready_queue4[rear4] = p;
+    }
 }
 
 void add_process_table(process *p)
@@ -42,28 +62,63 @@ void add_process_table(process *p)
 
 bool is_empty()
 {
-
-    return (front > rear && front_r > rear_r);
+    return (front1 > rear1 && front2 > rear2 && front3 > rear3 && front4 > rear4 && front_r > rear_r);
 }
 
 process *remove_process(process *p)
 {
-    if (front > rear)
+    int pr = p->priority;
+    if (pr == 1)
     {
-        process *dummy = create_process("None");
-        dummy->pid = -1;
-        return dummy;
+        if (front1 > rear1)
+        {
+            process *dummy = create_process("None", 1);
+            dummy->pid = -1;
+            return dummy;
+        }
+        p = ready_queue1[front1];
+        front1++;
     }
-    p = ready_queue[front];
-    front++;
-    return p;
+    else if (pr == 2)
+    {
+        if (front2 > rear2)
+        {
+            process *dummy = create_process("None", 2);
+            dummy->pid = -1;
+            return dummy;
+        }
+        p = ready_queue2[front2];
+        front2++;
+    }
+    else if (pr == 3)
+    {
+        if (front3 > rear3)
+        {
+            process *dummy = create_process("None", 3);
+            dummy->pid = -1;
+            return dummy;
+        }
+        p = ready_queue3[front3];
+        front3++;
+    }
+    else if (pr == 4)
+    {
+        if (front4 > rear4)
+        {
+            process *dummy = create_process("None", 4);
+            dummy->pid = -1;
+            return dummy;
+        }
+        p = ready_queue4[front4];
+        front4++;
+    }
 }
 
 process *remove_process_r(process *p)
 {
     if (front_r > rear_r)
     {
-        process *dummy = create_process("None");
+        process *dummy = create_process("None",p->priority);
         dummy->pid = -1;
         return dummy;
     }
