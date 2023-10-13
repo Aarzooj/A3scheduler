@@ -112,6 +112,7 @@ process *remove_process(process *p)
         p = ready_queue4[front4];
         front4++;
     }
+    return p;
 }
 
 process *remove_process_r(process *p)

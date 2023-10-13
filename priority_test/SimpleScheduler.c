@@ -53,7 +53,7 @@ void move_ready_to_running(int front, int rear, process **ready_queue)
             printf("READY QUEUE --->\n");
             for (int j = front; j < rear + 1; j++)
             {
-                printf("%s %d\n", ready_queue[j]->name, ready_queue[j]->pid);
+                printf("%s %d\n", ready_queue[j]->name, ready_queue[j]->priority);
             }
             printf("Runned process: %s   %d\n", ready_queue[i]->name, ready_queue[i]->priority);
             if (clock_gettime(CLOCK_MONOTONIC, &ready_queue[i]->start_time) == -1)
@@ -63,6 +63,7 @@ void move_ready_to_running(int front, int rear, process **ready_queue)
             }
             kill(ready_queue[i]->pid, SIGCONT);
             process *p = remove_process(ready_queue[i]);
+            printf("%s\n",p->name);
             p->current_cycle = CPU_CYCLES + 1;
             p->wait_time += (p->current_cycle - p->prev_cycle - 1) * TSLICE;
             p->prev_cycle = p->current_cycle;

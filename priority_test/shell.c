@@ -187,7 +187,6 @@ char **tokenize(char *command, const char delim[2])
         args[count++] = strip(token);
         token = strtok(NULL, delim);
     }
-    printf("Tokenised\n");
     return args;
 }
 
@@ -342,9 +341,6 @@ void shell_loop()
         else
         {
             char **args = tokenize(command, " ");
-            // for (int k = 0; k < 3; k++){
-            //     printf("%s ",args[k]);
-            // }
             strcpy(history.record[history.historyCount].command, tmp);
             history.record[history.historyCount].start_time = time(NULL);
             if (strcmp(args[0], "submit") == 0)
@@ -368,7 +364,7 @@ void shell_loop()
                     if (args[2] != NULL)
                     {
                         int pr = atoi(args[2]);
-                        process *p = create_process(args[1], pr);
+                        p = create_process(args[1], pr);
                     }
                     else
                     {
