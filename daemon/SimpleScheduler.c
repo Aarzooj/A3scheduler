@@ -60,17 +60,13 @@ void move_ready_to_running(int *front, int *rear, process *ready_queue)
                 perror("clock_gettime");
                 exit(EXIT_FAILURE);
             }
-            // printf("In function: %d\n", ready_queue[i].pid);
             if (kill(ready_queue[i].pid, SIGCONT) == -1)
             {
                 perror("SimpleScheduler.c: SIGCONT failed\n");
             }
             process p = remove_process(ready_queue[i]);
-            // printf("%s\n", p.name);
             p.current_cycle = CPU_CYCLES + 1;
-            // printf("%d %d\n",p.current_cycle,p.prev_cycle);
             p.wait_time += (p.current_cycle - p.prev_cycle - 1) * TSLICE;
-            // printf("Wait: %lld\n",p.wait_time);
             p.prev_cycle = p.current_cycle;
             p.state = RUNNING;
             add_process_r(p);
