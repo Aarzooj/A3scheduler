@@ -4,7 +4,6 @@ void scheduler()
 {
     if (ready_queue1[*front1].pid != 0)
     {
-        // printf("%d\n", *rear1);
         move_ready_to_running(front1, rear1, ready_queue1);
     }
     else if (ready_queue2[*front2].pid != 0)
