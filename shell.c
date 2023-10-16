@@ -13,6 +13,7 @@ struct CommandParameter
     pid_t process_pid;
 };
 
+// struct to create array for history
 struct CommandHistory
 {
     struct CommandParameter record[HISTORY_SIZE];
@@ -65,7 +66,8 @@ int create_process_and_run(char **args)
     int status = fork();
     if (status < 0)
     {
-        perror("Fork Failed");
+        perror("shell.c: Fork Failed");
+        exit(1);
     }
     else if (status == 0)
     {
@@ -129,6 +131,7 @@ char *read_user_input()
     {
         perror("Error while reading line\n");
         free(input);
+        exit(1);
     }
 }
 
@@ -167,6 +170,7 @@ char *strip(char *string)
     if (final_strip == NULL)
     {
         perror("Memory allocation failed\n");
+        exit(1);
     }
     memcpy(final_strip, stripped, INPUT_SIZE);
     return final_strip;
@@ -179,6 +183,7 @@ char **tokenize(char *command, const char delim[2])
     if (args == NULL)
     {
         perror("Memory allocation failed\n");
+        exit(1);
     }
     int count = 0;
     char *token = strtok(command, delim);
@@ -200,32 +205,45 @@ bool validate_command(char *command)
     return false;
 }
 
+// SIGCHLD: Invoked when the child process terminates
+// Final execution time is calculated and the process is deleted from the running queue
 void sigchld_handler(int signum)
 {
     int status;
     pid_t pid;
+    // returns the pid of the terminated child
+    // WNOHANG: returns 0 if the status information of any process is not available i.e. the process has not terminated
+    // In other words, the loop will only run after the background processes running has terminated or changed state
     while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
     {
-        for (int i = front_r; i < rear_r + 1; i++)
+        for (int i = *front_r; i < *rear_r + 1; i++)
         {
-            if (running_queue[i]->pid == pid)
+            if (running_queue[i].pid == pid)
             {
-                if (clock_gettime(CLOCK_MONOTONIC, &running_queue[i]->end_time) == -1)
+                if (clock_gettime(CLOCK_MONOTONIC, &running_queue[i].end_time) == -1)
                 {
-                    perror("clock_gettime");
+                    perror("shell.c: clock_gettime");
                     exit(EXIT_FAILURE);
                 }
-                printf("Process terminated: %s\n", running_queue[i]->name);
-                running_queue[i]->execution_time += ((running_queue[i]->end_time.tv_sec - running_queue[i]->start_time.tv_sec) * 1000) + (running_queue[i]->end_time.tv_nsec + running_queue[i]->start_time.tv_nsec) / 1e6;
-                for (int j = i; j < rear_r; j++)
+                printf("Process terminated: %s\n", running_queue[i].name);
+                running_queue[i].execution_time += ((running_queue[i].end_time.tv_sec - running_queue[i].start_time.tv_sec) * 1000) + (running_queue[i].end_time.tv_nsec + running_queue[i].start_time.tv_nsec) / 1e6;
+                for (int k = 0; k < *total_processes; k++)
+                {
+                    if (process_table[k].pid == running_queue[i].pid)
+                    {
+                        process_table[k] = running_queue[i];
+                        break;
+                    }
+                }
+                for (int j = i; j < *rear_r; j++)
                 {
                     running_queue[j] = running_queue[j + 1];
                 }
-                running_queue[rear_r] = NULL;
-                rear_r--;
+                (*rear_r)--;
                 break;
             }
         }
+        // Updating the history
         for (int i = 0; i < history.historyCount; i++)
         {
             if (history.record[i].process_pid == pid)
@@ -239,11 +257,6 @@ void sigchld_handler(int signum)
     }
 }
 
-void sigusr_handler(int signum)
-{
-    scheduler(NCPU, TSLICE);
-}
-
 // main shell loop
 void shell_loop()
 {
@@ -251,18 +264,19 @@ void shell_loop()
     if (signal(SIGINT, my_handler) == SIG_ERR)
     {
         perror("SIGINT handling failed");
+        exit(1);
     }
-    if (signal(SIGUSR1, sigusr_handler) == SIG_ERR)
-    {
-        perror("SIGUSR1 handling failed");
-    }
-    if (set_sigalrm(SIGALRM, SA_RESTART, sigalrm_handler) == -1)
-    {
-        perror("SIGALRM handling failed");
-    }
+    // Setting the function for SIGCHLD
     if (signal(SIGCHLD, sigchld_handler) == SIG_ERR)
     {
         perror("SIGCHLD handling failed");
+        exit(1);
+    }
+    // Setting the function for timer interrupt
+    if (set_sigalrm(SIGALRM, SA_RESTART, sigalrm_handler) == -1)
+    {
+        perror("SIGALRM handling failed");
+        exit(1);
     }
     // Creating the prompt text
     char *user = getenv("USER");
@@ -282,7 +296,6 @@ void shell_loop()
     do
     {
         printf("%s@%s~$ ", user, host);
-
         // taking input
         char *command = read_user_input();
         // handling the case if the input is blank or enter key
@@ -336,7 +349,14 @@ void shell_loop()
         }
         else if (strstr(command, "run"))
         {
-            kill(getpid(), SIGUSR1);
+            // Starting the timer before executing the process
+            if (timer_handler(TSLICE * 1e6) == -1)
+            {
+                perror("Timer handler");
+                exit(1);
+            }
+            // Sending a signal to the child process to start the scheduler in the background
+            kill(child_pid, SIGCONT);
         }
         else
         {
@@ -349,26 +369,54 @@ void shell_loop()
                 pid_t pid = fork();
                 if (pid == 0)
                 { // Child process
-                    // Wait for the scheduler signal before starting execution
+                    // Waiting for the scheduler signal before starting execution
                     printf("Process continued: %s\n", args[1]);
                     char *temp[2] = {args[1], NULL};
-                    execvp(args[1], temp);
-                    fprintf(stderr, "Error executing %s\n", args[1]);
-                    exit(1);
+                    if (execvp(args[1], temp) == -1)
+                    {
+                        printf("Error executing %s\n", args[1]);
+                        exit(1);
+                    }
                 }
                 else if (pid > 0)
                 { // Parent process
-                    // Add the process to the list
-                    kill(pid, SIGSTOP);
-                    process *p = create_process(args[1]);
-                    p->pid = pid;
+                    // Pausing the execution of the child process to where it was
+                    if (kill(pid, SIGSTOP) == -1)
+                    {
+                        perror("shell.c: SIGSTOP signal failed\n");
+                        exit(1);
+                    }
+                    process p;
+                    // priority set
+                    if (args[2] != NULL)
+                    {
+                        int pr = atoi(args[2]);
+                        p = create_process(args[1], pr);
+                        if (&p == NULL)
+                        {
+                            perror("Allocation failed\n");
+                            exit(1);
+                        }
+                    }
+                    else
+                    {
+                        // default priority = 1
+                        p = create_process(args[1], 1);
+                        if (&p == NULL)
+                        {
+                            perror("Allocation failed\n");
+                            exit(1);
+                        }
+                    }
+                    p.pid = pid;
+                    // Adding the process to the ready queue and the process table
                     add_process(p);
                     add_process_table(p);
                     num_processes++;
                 }
                 else
                 {
-                    fprintf(stderr, "Fork failed\n");
+                    perror("shell.c: Fork failed\n");
                     exit(1);
                 }
                 status = pid;
@@ -404,8 +452,60 @@ int main(int argc, char *argv[])
     }
     NCPU = atoi(argv[1]);
     TSLICE = atoi(argv[2]);
+    // Mapping the memory to create a shared memory for both parent and child
+    process_table = mmap(NULL, sizeof(process) * MAX_PROCESSES, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    ready_queue1 = mmap(NULL, sizeof(process) * MAX_PROCESSES, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    ready_queue2 = mmap(NULL, sizeof(process) * MAX_PROCESSES, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    ready_queue3 = mmap(NULL, sizeof(process) * MAX_PROCESSES, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    ready_queue4 = mmap(NULL, sizeof(process) * MAX_PROCESSES, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    running_queue = mmap(NULL, sizeof(process) * MAX_PROCESSES, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    front1 = mmap(NULL, sizeof(front1), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    front2 = mmap(NULL, sizeof(front1), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    front3 = mmap(NULL, sizeof(front1), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    front4 = mmap(NULL, sizeof(front1), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    front_r = mmap(NULL, sizeof(front1), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    rear1 = mmap(NULL, sizeof(rear1), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    rear2 = mmap(NULL, sizeof(rear1), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    rear3 = mmap(NULL, sizeof(rear1), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    rear4 = mmap(NULL, sizeof(rear1), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    rear_r = mmap(NULL, sizeof(rear1), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    total_processes = mmap(NULL, sizeof(total_processes), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     // initializing count for elements in history
     history.historyCount = 0;
-    shell_loop();
+    int pid = fork();
+    if (pid < 0)
+    {
+        perror("shell.c: Fork failed\n");
+        exit(1);
+    }
+    else if (pid == 0)
+    {
+        // Child process: Running the scheduler
+        printf("Starting the scheduler\n");
+        scheduler();
+    }
+    else
+    {
+        // Parent process: Running the shell
+        // Initialising the values
+        *front1 = 0;
+        *rear1 = -1;
+        *front2 = 0;
+        *rear2 = -1;
+        *front3 = 0;
+        *rear3 = -1;
+        *front4 = 0;
+        *rear4 = -1;
+        *front_r = 0;
+        *rear_r = -1;
+        *total_processes = 0;
+        child_pid = pid;
+        // Pausing the child
+        if (kill(pid, SIGSTOP) == -1){
+            perror("shell.c: SIGSTOP failed\n");
+            exit(1);
+        }
+        shell_loop();
+    }
     return 0;
 }
