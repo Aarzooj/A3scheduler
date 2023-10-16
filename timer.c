@@ -38,6 +38,7 @@ static void sigalrm_handler(int sig)
         // deleting the timer
         timer_delete(timer);
         empty_process_table();
+        kill(child_pid,SIGSTOP);
         printf("Scheduler ended\n");
         printf("Back to shell. Enter command to continue\n");
     }

@@ -347,7 +347,7 @@ void shell_loop()
                 continue;
             }
         }
-        else if (strstr(command, "run"))
+        else if (strcmp(command, "run") == 0)
         {
             // Starting the timer before executing the process
             if (timer_handler(TSLICE * 1e6) == -1)
